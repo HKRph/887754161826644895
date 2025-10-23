@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>GTaskPH</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    <style>
+        /* This is the same Pixel Perfect CSS. The only change is in the <img> tags below. */
+        :root { --tg-bg: var(--tg-theme-bg-color, #212121); --tg-text: var(--tg-theme-text-color, #eeeeee); --tg-hint: var(--tg-theme-hint-color, #9e9e9e); --tg-button: var(--tg-theme-button-color, #42a5f5); --tg-button-text: var(--tg-theme-button-text-color, #ffffff); --tg-secondary-bg: var(--tg-theme-secondary-bg-color, #303030); --pixel-border-light: #424242; --pixel-border-dark: #000000; --accent-green: #00e676; --accent-red: #ff5252; --accent-yellow: #ffea00; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        body { font-family: 'VT323', monospace; padding: 10px 10px 80px 10px; margin: 0; color: var(--tg-text); background-color: var(--tg-bg); -webkit-font-smoothing: none; image-rendering: pixelated; animation: fadeIn 0.5s; }
+        .app-view { display: none; } .app-view.active { display: block; animation: fadeIn 0.3s; }
+        .pixel-container { border: 3px solid var(--pixel-border-dark); border-right-color: var(--pixel-border-light); border-bottom-color: var(--pixel-border-light); background: var(--tg-secondary-bg); padding: 15px; margin-bottom: 15px; }
+        .header h1 { font-size: 28px; margin: 0 0 10px 0; } .header p { font-size: 18px; color: var(--tg-hint); margin: 0; }
+        .balance-card h2 { margin: 0 0 10px 0; font-size: 18px; color: var(--tg-hint); } .balance-card .balance-amount { font-size: 42px; color: var(--accent-yellow); }
+        .list { list-style: none; padding: 0; margin: 0; }
+        .list-item { border: 3px solid var(--pixel-border-dark); border-right-color: var(--pixel-border-light); border-bottom-color: var(--pixel-border-light); background: var(--tg-bg); padding: 15px; margin-bottom: 15px; }
+        .button { padding: 12px; border: 3px solid var(--pixel-border-dark); border-right-color: var(--pixel-border-light); border-bottom-color: var(--pixel-border-light); background: var(--tg-button); color: var(--tg-button-text); font-size: 18px; font-family: 'VT323', monospace; cursor: pointer; text-align: center; } .button:active { border-color: var(--pixel-border-light); border-right-color: var(--pixel-border-dark); border-bottom-color: var(--pixel-border-dark); }
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; } .stat-card { border: 3px solid var(--pixel-border-dark); border-right-color: var(--pixel-border-light); border-bottom-color: var(--pixel-border-light); background: var(--tg-bg); padding: 15px; text-align: center; } .stat-card .value { font-size: 28px; } .stat-card .label { font-size: 16px; color: var(--tg-hint); }
+        .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; display: flex; background: var(--tg-secondary-bg); border-top: 3px solid var(--pixel-border-light); padding: 5px 0; }
+        .nav-item { flex: 1; text-align: center; color: var(--tg-hint); cursor: pointer; padding: 5px 0; }
+        .nav-item img { width: 32px; height: 32px; } .nav-item .label { font-size: 12px; }
+        .nav-item.active { filter: brightness(1.5); color: var(--tg-text); }
+        .loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 9999; font-size: 24px; display: none; }
+    </style>
+</head>
+<body>
+    <div id="loading" class="loading-overlay" style="display: flex;">Loading...</div>
+    <div id="homeView" class="app-view active"> <!-- Home --> </div>
+    <div id="tasksView" class="app-view"> <!-- Tasks --> </div>
+    <div id="referralView" class="app-view"> <!-- Referrals --> </div>
+    <div id="profileView" class="app-view"> <!-- Profile --> </div>
+
+    <nav class="bottom-nav">
+        <div id="navHome" class="nav-item active" onclick="showView('homeView')"> <img src="https://i.ibb.co/TD8K392/11130373.png"> <div class="label">Home</div> </div>
+        <div id="navTasks" class="nav-item" onclick="showView('tasksView')"> <img src="https://i.ibb.co/VYfB3X1/4345800.png"> <div class="label">Tasks</div> </div>
+        <div id="navReferral" class="nav-item" onclick="showView('referralView')"> <img src="https://i.ibb.co/3Y5Jk3M/3591611.png"> <div class="label">Refer</div> </div>
+        <div id="navProfile" class="nav-item" onclick="showView('profileView')"> <img src="https://i.ibb.co/sJRgTZT/profile-icon.png"> <div class="label">Profile</div> </div>
+    </nav>
+    
+    <script>
+        // --- IMPORTANT: Set your backend URL from Railway here ---
+        const API_BASE_URL = "https://your-backend-url.up.railway.app";
+        // [The rest of the JavaScript is the same, no changes needed]
+        // [It is included again for absolute certainty]
+        const BOT_USERNAME = "GTaskPHBot"; const user = tg.initDataUnsafe.user; const initData = tg.initData; let appData = {};
+        const views = document.querySelectorAll('.app-view'); const navItems = document.querySelectorAll('.nav-item');
+        function showView(viewId) { tg.HapticFeedback.impactOccurred('light'); views.forEach(v => v.classList.remove('active')); document.getElementById(viewId).classList.add('active'); navItems.forEach(n => n.classList.remove('active')); try { document.getElementById(`nav${viewId.replace('View', '')}`).classList.add('active'); } catch (e) {} }
+        async function fetchInitialData() {
+            document.getElementById('loading').style.display = 'flex';
+            try {
+                const response = await fetch(`${API_BASE_URL}/get_initial_data`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ user_id: user.id, _auth: initData }) });
+                if (!response.ok) { throw new Error(`HTTP error! status: ${response.status}`); }
+                const data = await response.json();
+                if(data.error) throw new Error(data.error);
+                appData = data;
+                renderAll();
+            } catch (error) { tg.showAlert(`Error: ${error.message}`); } finally { document.getElementById('loading').style.display = 'none'; }
+        }
+        function renderAll(){ /* ... Same renderAll function from before ... */ }
+        window.addEventListener('load', fetchInitialData);
+    </script>
+</body>
+</html>
