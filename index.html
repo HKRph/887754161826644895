@@ -35,13 +35,14 @@
         .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; } .stat-card { border: 3px solid var(--pixel-border-dark); border-right-color: var(--pixel-border-light); border-bottom-color: var(--pixel-border-light); background: var(--tg-bg); padding: 15px; text-align: center; } .stat-card .value { font-size: 28px; } .stat-card .label { font-size: 16px; color: var(--tg-hint); }
         .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; display: flex; background: var(--tg-secondary-bg); border-top: 3px solid var(--pixel-border-light); padding: 5px 0; z-index: 100; }
         .nav-item { flex: 1; text-align: center; color: var(--tg-hint); cursor: pointer; padding: 5px 0; }
-        .nav-item img { width: 32px; height: 32px; image-rendering: pixelated; } .nav-item .label { font-size: 12px; }
+        .nav-item .icon { font-size: 24px; } .nav-item .label { font-size: 12px; }
         .nav-item.active { filter: drop-shadow(0 0 3px var(--tg-button)); color: var(--tg-text); }
         .loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 9999; font-size: 24px; display: none; }
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 1000; }
         .modal-content { border: 3px solid var(--pixel-border-dark); border-right-color: var(--pixel-border-light); border-bottom-color: var(--pixel-border-light); background: var(--tg-secondary-bg); padding: 20px; width: 90%; max-width: 400px; }
         .form-group { margin-bottom: 15px; } .form-group label { display: block; font-size: 18px; margin-bottom: 8px; } .form-group input, .form-group textarea { width: 100%; padding: 10px; font-size: 18px; font-family: 'VT323', monospace; border: 3px solid var(--pixel-border-dark); background-color: var(--tg-bg); color: var(--tg-text); box-sizing: border-box; }
         .toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: var(--tg-secondary-bg); color: var(--tg-text); padding: 15px; z-index: 2000; border: 3px solid var(--pixel-border-light); font-size: 18px; animation: toastIn 0.3s, toastOut 0.3s 2.2s; }
+        .withdrawal-item .status { float: right; font-weight: 600; font-size: 16px; } .status-pending { color: var(--accent-yellow); } .status-approved { color: var(--accent-green); } .status-rejected { color: var(--accent-red); }
     </style>
 </head>
 <body>
@@ -110,10 +111,10 @@
     </div>
 
     <nav class="bottom-nav">
-        <div id="navHome" class="nav-item active" onclick="showView('homeView')"> <img src="https://i.ibb.co/TD8K392/11130373.png"> <div class="label">Home</div> </div>
-        <div id="navTasks" class="nav-item" onclick="showView('tasksView')"> <img src="https://i.ibb.co/VYfB3X1/4345800.png"> <div class="label">Tasks</div> </div>
-        <div id="navReferral" class="nav-item" onclick="showView('referralView')"> <img src="https://i.ibb.co/3Y5Jk3M/3591611.png"> <div class="label">Refer</div> </div>
-        <div id="navProfile" class="nav-item" onclick="showView('profileView')"> <img src="https://i.ibb.co/sJRgTZT/profile-icon.png"> <div class="label">Profile</div> </div>
+        <div id="navHome" class="nav-item active" onclick="showView('homeView')"> <div class="icon">🏠</div> <div class="label">Home</div> </div>
+        <div id="navTasks" class="nav-item" onclick="showView('tasksView')"> <div class="icon">📜</div> <div class="label">Tasks</div> </div>
+        <div id="navReferral" class="nav-item" onclick="showView('referralView')"> <div class="icon">🤝</div> <div class="label">Refer</div> </div>
+        <div id="navProfile" class="nav-item" onclick="showView('profileView')"> <div class="icon">👤</div> <div class="label">Profile</div> </div>
     </nav>
     
     <script>
@@ -121,11 +122,10 @@
         tg.ready();
         tg.expand();
 
-        const API_BASE_URL = "64628638262626-production.up.railway.app";
+        const API_BASE_URL = "https://your-backend-url.up.railway.app";
         const BOT_USERNAME = "GTaskPHBot";
         const user = tg.initDataUnsafe.user;
         const initData = tg.initData;
-
         let appData = {};
 
         const views = document.querySelectorAll('.app-view');
