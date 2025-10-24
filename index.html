@@ -46,23 +46,16 @@
     </style>
 </head>
 <body>
-
     <div id="loading" class="loading-overlay" style="display: flex;">Loading...</div>
-
-    <!-- Home View -->
     <div id="homeView" class="app-view active">
         <div class="header"> <h1 id="welcome-message">GTaskPH</h1> <p>Your Pixel Quest for Rewards!</p> </div>
         <div class="pixel-container balance-card"> <h2>Balance</h2> <p id="balanceAmount" class="balance-amount">P--.--</p> </div>
         <div class="pixel-container announcement-card"> <h3>Announcements</h3> <p id="announcementText">Loading latest news...</p> </div>
     </div>
-
-    <!-- Tasks View -->
     <div id="tasksView" class="app-view">
         <div class="header"> <h1>Task Board</h1> </div>
         <ul id="taskList" class="list"></ul>
     </div>
-
-    <!-- Referrals View -->
     <div id="referralView" class="app-view">
         <div class="header"> <h1>Invite Allies</h1> </div>
         <div class="stats-grid">
@@ -77,8 +70,6 @@
             <a id="copyLinkBtn" class="button">Copy Scroll</a>
         </div>
     </div>
-
-    <!-- Profile View -->
     <div id="profileView" class="app-view">
         <div class="header"> <h1>Player Info</h1> </div>
         <div class="pixel-container">
@@ -97,8 +88,6 @@
             <ul id="withdrawalList" class="list" style="max-height: 150px; overflow-y: auto;"></ul>
         </div>
     </div>
-
-    <!-- Task Submission Modal -->
     <div id="taskModal" class="modal-overlay">
         <div class="modal-content">
             <h2 id="taskModalTitle" style="font-size: 20px;">Submit Proof</h2>
@@ -109,35 +98,19 @@
             </form>
         </div>
     </div>
-
     <nav class="bottom-nav">
         <div id="navHome" class="nav-item active" onclick="showView('homeView')"> <div class="icon">🏠</div> <div class="label">Home</div> </div>
         <div id="navTasks" class="nav-item" onclick="showView('tasksView')"> <div class="icon">📜</div> <div class="label">Tasks</div> </div>
         <div id="navReferral" class="nav-item" onclick="showView('referralView')"> <div class="icon">🤝</div> <div class="label">Refer</div> </div>
         <div id="navProfile" class="nav-item" onclick="showView('profileView')"> <div class="icon">👤</div> <div class="label">Profile</div> </div>
     </nav>
-    
     <script>
-        const tg = window.Telegram.WebApp;
-        tg.ready();
-        tg.expand();
-
-        const API_BASE_URL = "64628638262626-production.up.railway.app";
-        const BOT_USERNAME = "GTaskPHBot";
-        const user = tg.initDataUnsafe.user;
-        const initData = tg.initData;
-        let appData = {};
-
-        const views = document.querySelectorAll('.app-view');
-        const navItems = document.querySelectorAll('.nav-item');
+        const tg = window.Telegram.WebApp; tg.ready(); tg.expand();
+        const API_BASE_URL = "https://your-backend-url.up.railway.app";
+        const BOT_USERNAME = "GTaskPHBot"; const user = tg.initDataUnsafe.user; const initData = tg.initData; let appData = {};
+        const views = document.querySelectorAll('.app-view'); const navItems = document.querySelectorAll('.nav-item');
         function showView(viewId) { tg.HapticFeedback.impactOccurred('light'); views.forEach(v => v.classList.remove('active')); document.getElementById(viewId).classList.add('active'); navItems.forEach(n => n.classList.remove('active')); try { document.getElementById(`nav${viewId.replace('View', '')}`).classList.add('active'); } catch (e) {} }
-        function showToast(message) {
-            const toast = document.createElement('div');
-            toast.className = 'toast'; toast.innerText = message;
-            document.body.appendChild(toast);
-            setTimeout(() => { toast.remove(); }, 2500);
-        }
-        
+        function showToast(message) { const toast = document.createElement('div'); toast.className = 'toast'; toast.innerText = message; document.body.appendChild(toast); setTimeout(() => { toast.remove(); }, 2500); }
         async function fetchInitialData() {
             document.getElementById('loading').style.display = 'flex';
             try {
@@ -149,22 +122,11 @@
                 renderAll();
             } catch (error) { tg.showAlert(error.message || 'COULD NOT LOAD DATA. PLEASE RESTART.'); } finally { document.getElementById('loading').style.display = 'none'; }
         }
-
         function renderAll(){
             document.getElementById('balanceAmount').innerText = `P${(appData.balance || 0).toFixed(2)}`;
             document.getElementById('announcementText').innerText = appData.announcement || "Welcome! No new announcements at this time.";
             const taskList = document.getElementById('taskList'); taskList.innerHTML = '';
-            if (appData.tasks && appData.tasks.length > 0) {
-                appData.tasks.forEach(task => {
-                    const li = document.createElement('li'); li.className = 'list-item';
-                    li.innerHTML = `<h3>${task.description}</h3><p>REWARD: P${task.reward.toFixed(2)}</p>
-                                    <div style="display:flex; gap: 10px; margin-top: 15px;">
-                                        <a href="${task.link}" target="_blank" class="button" style="flex:1;">Visit Link</a>
-                                        <a class="button submit-proof-btn" data-task-id="${task.id}" style="flex:1; background: var(--accent-green); color: var(--pixel-border-dark);">Submit Proof</a>
-                                    </div>`;
-                    taskList.appendChild(li);
-                });
-            } else { taskList.innerHTML = '<li class="list-item"><p>No tasks available right now. Check back later!</p></li>'; }
+            if (appData.tasks && appData.tasks.length > 0) { appData.tasks.forEach(task => { const li = document.createElement('li'); li.className = 'list-item'; li.innerHTML = `<h3>${task.description}</h3><p>REWARD: P${task.reward.toFixed(2)}</p><div style="display:flex; gap: 10px; margin-top: 15px;"><a href="${task.link}" target="_blank" class="button" style="flex:1;">Visit Link</a><a class="button submit-proof-btn" data-task-id="${task.id}" style="flex:1; background: var(--accent-green); color: var(--pixel-border-dark);">Submit Proof</a></div>`; taskList.appendChild(li); }); } else { taskList.innerHTML = '<li class="list-item"><p>No tasks available right now. Check back later!</p></li>'; }
             document.getElementById('referralCount').innerText = appData.referral_count || 0;
             document.getElementById('successfulReferralCount').innerText = appData.successful_referrals || 0;
             document.getElementById('referralLink').innerText = `https://t.me/${BOT_USERNAME}?start=${user.id}`;
@@ -173,26 +135,17 @@
             const withdrawalList = document.getElementById('withdrawalList'); withdrawalList.innerHTML = '';
             if (appData.withdrawals && appData.withdrawals.length > 0) appData.withdrawals.forEach(w => { const item = document.createElement('li'); item.className = 'list-item'; item.innerHTML = `<span>P${w.amount.toFixed(2)} (${w.method})</span><span class="status status-${w.status}">${w.status}</span>`; withdrawalList.appendChild(item); }); else withdrawalList.innerHTML = '<li class="list-item"><p>No withdrawal history.</p></li>';
         }
-        
         window.addEventListener('load', fetchInitialData);
         if (user && user.first_name) document.getElementById('welcome-message').innerText = `Hey, ${user.first_name}!`;
         document.getElementById('copyLinkBtn').addEventListener('click', () => { navigator.clipboard.writeText(document.getElementById('referralLink').innerText).then(() => { tg.HapticFeedback.notificationOccurred('success'); showToast('Link Copied!'); }); });
-        
         document.getElementById('taskList').addEventListener('click', e => { if (e.target.classList.contains('submit-proof-btn')) { openTaskModal(e.target.getAttribute('data-task-id')); }});
-        const taskModal = document.getElementById('taskModal');
-        let currentTaskId = null;
+        const taskModal = document.getElementById('taskModal'); let currentTaskId = null;
         function openTaskModal(taskId) { currentTaskId = taskId; taskModal.style.display = 'flex'; }
         document.getElementById('cancelSubmitBtn').addEventListener('click', () => { taskModal.style.display = 'none'; });
         taskModal.addEventListener('click', (e) => { if (e.target === taskModal) taskModal.style.display = 'none'; });
-
         document.getElementById('taskProofForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            const text = document.getElementById('taskProofText').value;
-            const photoInput = document.getElementById('taskProofPhoto');
-            if (photoInput.files.length === 0) { tg.showAlert('Please upload a screenshot.'); return; }
-            
-            const reader = new FileReader();
-            reader.readAsDataURL(photoInput.files[0]);
+            e.preventDefault(); const text = document.getElementById('taskProofText').value; const photoInput = document.getElementById('taskProofPhoto'); if (photoInput.files.length === 0) { tg.showAlert('Please upload a screenshot.'); return; }
+            const reader = new FileReader(); reader.readAsDataURL(photoInput.files[0]);
             reader.onload = async () => {
                 document.getElementById('loading').style.display = 'flex';
                 try {
@@ -203,18 +156,13 @@
             };
             reader.onerror = () => { tg.showAlert('Error reading file.'); };
         });
-
         document.getElementById('redeemCodeBtn').addEventListener('click', async () => {
-            const code = document.getElementById('redeemCodeInput').value;
-            if (!code) { return; }
+            const code = document.getElementById('redeemCodeInput').value; if (!code) { return; }
             document.getElementById('loading').style.display = 'flex';
             try {
                 const response = await fetch(`${API_BASE_URL}/redeem_code`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ user_id: user.id, _auth: initData, code }) });
                 const result = await response.json();
-                if (result.status === 'success') {
-                    tg.showAlert(`Success! P${result.amount_rewarded.toFixed(2)} added to your balance.`);
-                    fetchInitialData();
-                } else { throw new Error(result.message); }
+                if (result.status === 'success') { tg.showAlert(`Success! P${result.amount_rewarded.toFixed(2)} added to your balance.`); fetchInitialData(); } else { throw new Error(result.message); }
             } catch (error) { tg.showAlert(error.message || 'Invalid code.'); } finally { document.getElementById('loading').style.display = 'none'; }
         });
     </script>
