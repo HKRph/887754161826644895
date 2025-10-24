@@ -106,7 +106,7 @@
     </nav>
     <script>
         const tg = window.Telegram.WebApp; tg.ready(); tg.expand();
-        const API_BASE_URL = "https://your-backend-url.up.railway.app";
+        const API_BASE_URL = "64628638262626-production.up.railway.app";
         const BOT_USERNAME = "GTaskPHBot"; const user = tg.initDataUnsafe.user; const initData = tg.initData; let appData = {};
         const views = document.querySelectorAll('.app-view'); const navItems = document.querySelectorAll('.nav-item');
         function showView(viewId) { tg.HapticFeedback.impactOccurred('light'); views.forEach(v => v.classList.remove('active')); document.getElementById(viewId).classList.add('active'); navItems.forEach(n => n.classList.remove('active')); try { document.getElementById(`nav${viewId.replace('View', '')}`).classList.add('active'); } catch (e) {} }
