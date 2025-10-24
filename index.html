@@ -61,14 +61,12 @@
     <div id="homeView" class="app-view active">
         <div class="header"> <h1 id="welcome-message">GTaskPH</h1> <p>Your Pixel Quest for Rewards!</p> </div>
         <div class="pixel-container balance-card"> <h2>Balance</h2> <p id="balanceAmount" class="balance-amount">P--.--</p> </div>
-        
         <div class="pixel-container daily-bonus-card">
             <h3>Daily Login Bonus</h3>
             <p id="dailyBonusStatus" style="font-size: 16px; margin-bottom: 10px; color: var(--tg-hint);">Loading...</p>
             <div class="progress-bar"><div id="dailyBonusProgress" class="progress-fill"></div></div>
             <a id="claimDailyBonusBtn" class="button" style="margin-top: 15px;">Claim Bonus (P10.00)</a>
         </div>
-
         <div class="pixel-container announcement-card"> <h3>Announcements</h3> <p id="announcementText">Loading latest news...</p> </div>
     </div>
 
@@ -93,8 +91,30 @@
             <a id="copyLinkBtn" class="button">Copy Scroll</a>
         </div>
     </div>
+    
+    <!-- Gift View -->
+    <div id="giftView" class="app-view">
+        <div class="header"> <h1>Gift Treasury</h1> </div>
+        <div class="pixel-container">
+            <h3>Your Gift Tickets</h3>
+            <div style="text-align: center; margin-bottom: 20px;">
+                <span id="giftTicketCount" style="font-size: 42px; color: var(--accent-yellow);">0</span>
+                <p style="color: var(--tg-hint); font-size: 16px; margin-top: 5px;">Tickets Available</p>
+            </div>
+            <a id="buyTicketBtn" class="button" style="background: var(--accent-green); color: var(--pixel-border-dark);">Buy Tickets (P77.00 - B1G1)</a>
+        </div>
+        <div class="pixel-container">
+            <h3>Send a Gift</h3>
+            <p style="font-size: 16px; line-height: 1.5;">Uses 1 Ticket. A 5% fee applies to the sent amount from your balance.</p>
+            <form id="giftForm">
+                <div class="form-group"><label for="giftRecipientId">Recipient User ID</label><input type="number" id="giftRecipientId" placeholder="e.g., 123456789"></div>
+                <div class="form-group"><label for="giftAmount">Amount (Min: P300)</label><input type="number" id="giftAmount" placeholder="e.g., 500"></div>
+                <button type="submit" class="button">Send Gift</button>
+            </form>
+        </div>
+    </div>
 
-    <!-- Profile View (Now includes Withdrawal) -->
+    <!-- Profile View -->
     <div id="profileView" class="app-view">
         <div class="header"> <h1>Player Info</h1> </div>
         <div class="pixel-container">
@@ -102,14 +122,10 @@
             <p id="profileId" style="font-size: 14px; color: var(--tg-hint);">ID: ...</p>
             <p id="tasksCompleted" style="font-size: 14px; color: var(--tg-hint);">Tasks Completed: 0</p>
         </div>
-
         <div class="pixel-container task-milestone-card">
             <h3>Task Milestones</h3>
-            <div id="taskMilestonesList">
-                <!-- Milestones will be rendered here by JS -->
-            </div>
+            <div id="taskMilestonesList"></div>
         </div>
-
         <div class="pixel-container">
             <h3>Redeem Scroll</h3>
             <div style="display: flex; gap: 10px; align-items: center;">
@@ -117,22 +133,18 @@
                 <a id="redeemCodeBtn" class="button" style="padding: 10px 15px;">OK</a>
             </div>
         </div>
-
-        <!-- Withdrawal Section - Now part of Profile View -->
         <div class="pixel-container" style="position: relative;">
-            <div id="withdrawalMaintenanceOverlay" class="withdrawal-maintenance-overlay" style="display:none;">
-                WITHDRAWAL<br>MAINTENANCE MODE
-            </div>
+            <div id="withdrawalMaintenanceOverlay" class="withdrawal-maintenance-overlay" style="display:none;">WITHDRAWAL<br>MAINTENANCE</div>
             <h3>Withdraw Funds</h3>
             <p style="font-size: 16px; line-height: 1.5;"><span id="minWithdrawalText">Min: P300.00</span>, <span id="maxWithdrawalText">Max: P30000.00</span></p>
             <form id="withdrawForm">
                 <div class="form-group"><label for="withdrawAmount">Amount</label><input type="number" id="withdrawAmount" placeholder="e.g., 500"></div>
                 <div class="form-group"><label>Method</label><div class="method-selector"><button type="button" id="gcashBtn">GCASH</button><button type="button" id="mayaBtn">MAYA</button></div></div>
                 <div class="form-group"><label for="withdrawDetails">Account Number</label><input type="tel" id="withdrawDetails" placeholder="Your GCash/Maya number"></div>
-                <button type="submit" class="button" style="background: var(--accent-red); color: var(--tg-button-text);">Submit Withdrawal</button>
+                <p id="withdrawalFeeText" style="font-size: 14px; color: var(--tg-hint); text-align: center; display: none;"></p>
+                <button type="submit" class="button" style="background: var(--accent-red); color: var(--tg-button-text); margin-top: 10px;">Submit Withdrawal</button>
             </form>
         </div>
-
         <div class="pixel-container">
             <h3>Withdrawal History</h3>
             <ul id="withdrawalList" class="list" style="max-height: 150px; overflow-y: auto;"></ul>
@@ -155,279 +167,75 @@
         <div id="navHome" class="nav-item active" onclick="showView('homeView')"> <div class="icon">🏠</div> <div class="label">Home</div> </div>
         <div id="navTasks" class="nav-item" onclick="showView('tasksView')"> <div class="icon">📜</div> <div class="label">Tasks</div> </div>
         <div id="navReferral" class="nav-item" onclick="showView('referralView')"> <div class="icon">🤝</div> <div class="label">Refer</div> </div>
+        <div id="navGift" class="nav-item" onclick="showView('giftView')"> <div class="icon">🎁</div> <div class="label">Gift</div> </div>
         <div id="navProfile" class="nav-item" onclick="showView('profileView')"> <div class="icon">👤</div> <div class="label">Profile</div> </div>
     </nav>
     
     <script>
         const tg = window.Telegram.WebApp; tg.ready(); tg.expand();
-        
-        // YOUR FINAL RAILWAY BACKEND URL IS HERE
-        const API_BASE_URL = "https://64628638262626-production.up.railway.app"; 
+        const API_BASE_URL = "https://gtask-backend-production.up.railway.app"; 
         const BOT_USERNAME = "GTaskPHBot";
         const user = tg.initDataUnsafe.user;
         const initData = tg.initData;
 
-        let appData = {}; // Stores all fetched data from backend
-        let withdrawalMethod = '';
-
-        // --- Frontend Constants (for UI validation/display) ---
-        // These should ideally be fetched from backend for full sync, but hardcoded for now
-        const MIN_WITHDRAWAL_UI = 300; 
-        const MAX_WITHDRAWAL_UI = 30000;
-        const DAILY_BONUS_INVITE_REQ_UI = 2;
-        const DAILY_BONUS_AMOUNT_UI = 10;
+        let appData = {}; let withdrawalMethod = '';
         const TASK_MILESTONES_UI = {10: 50.0, 20: 150.0, 30: 400.0}; 
-
 
         const views = document.querySelectorAll('.app-view');
         const navItems = document.querySelectorAll('.nav-item');
-        function showView(viewId) { 
-            tg.HapticFeedback.impactOccurred('light'); 
-            views.forEach(v => v.classList.remove('active')); 
-            document.getElementById(viewId).classList.add('active'); 
-            navItems.forEach(n => n.classList.remove('active')); 
-            try { document.getElementById(`nav${viewId.replace('View', '')}`).classList.add('active'); } catch (e) {} 
-        }
-
-        function showToast(message) { 
-            const toast = document.createElement('div'); 
-            toast.className = 'toast'; toast.innerText = message; 
-            document.body.appendChild(toast); 
-            setTimeout(() => { toast.remove(); }, 2500); 
-        }
+        function showView(viewId) { tg.HapticFeedback.impactOccurred('light'); views.forEach(v => v.classList.remove('active')); document.getElementById(viewId).classList.add('active'); navItems.forEach(n => n.classList.remove('active')); try { document.getElementById(`nav${viewId.replace('View', '')}`).classList.add('active'); } catch (e) {} }
+        function showToast(message) { const toast = document.createElement('div'); toast.className = 'toast'; toast.innerText = message; document.body.appendChild(toast); setTimeout(() => { toast.remove(); }, 2500); }
         
         async function fetchInitialData() {
             document.getElementById('loading').style.display = 'flex';
             try {
                 const response = await fetch(`${API_BASE_URL}/get_initial_data`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ user_id: user.id, _auth: initData }) });
-                if (!response.ok) { 
-                    const errorText = await response.text(); 
-                    let errorMessage = `Network response was not ok: ${response.status}.`;
-                    try {
-                        const errorJson = JSON.parse(errorText);
-                        errorMessage = errorJson.detail || errorJson.error || errorMessage;
-                    } catch (e) {
-                        errorMessage = errorText; // Use raw text if not JSON
-                    }
-                    throw new Error(errorMessage); 
-                }
+                if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.detail || `Network response was not ok: ${response.status}`); }
                 const data = await response.json();
-                if(data.error) {
-                    tg.showAlert(data.detail || data.error); 
-                    // Do not close app on soft errors, allow user to see status
-                    return;
-                }
+                if(data.error) { tg.showAlert(data.detail || data.error); if(data.detail.includes("banned") || data.detail.includes("restricted")){ tg.close(); } return; }
                 appData = data;
-                
-                // Update dynamic constants from backend for UI
-                MIN_WITHDRAWAL_JS = data.min_withdrawal;
-                MAX_WITHDRAWAL_JS = data.max_withdrawal;
-                // DAILY_BONUS_INVITE_REQ_JS = data.daily_bonus_req; // No need as it's passed directly to status text
-                
-                // Set withdrawal maintenance mode
-                const withdrawalMaintenanceOverlay = document.getElementById('withdrawalMaintenanceOverlay');
-                if (data.withdrawal_maintenance) {
-                    withdrawalMaintenanceOverlay.style.display = 'flex';
-                } else {
-                    withdrawalMaintenanceOverlay.style.display = 'none';
-                }
-
                 renderAll();
-            } catch (error) { 
-                tg.showAlert(error.message || 'COULD NOT LOAD DATA. PLEASE RESTART.'); 
-                // Don't close tg, let user retry
-            } finally { document.getElementById('loading').style.display = 'none'; }
+            } catch (error) { tg.showAlert(error.message || 'COULD NOT LOAD DATA. PLEASE RESTART.'); } finally { document.getElementById('loading').style.display = 'none'; }
         }
 
         function renderAll(){
-            // Home View
             document.getElementById('balanceAmount').innerText = `P${(appData.balance || 0).toFixed(2)}`;
-            document.getElementById('announcementText').innerText = appData.announcement || "Welcome! No new announcements at this time.";
-
-            // Daily Bonus
-            const claimBtn = document.getElementById('claimDailyBonusBtn');
-            const dailyBonusStatus = document.getElementById('dailyBonusStatus');
-            const dailyBonusProgress = document.getElementById('dailyBonusProgress');
-
-            if (appData.can_claim_daily) {
-                claimBtn.classList.remove('disabled');
-                claimBtn.innerText = `Claim Bonus (P${DAILY_BONUS_AMOUNT_UI.toFixed(2)})`;
-                dailyBonusStatus.innerText = 'Ready to Claim!';
-                dailyBonusProgress.style.width = '100%';
-            } else {
-                claimBtn.classList.add('disabled');
-                const invitesNeeded = Math.max(0, DAILY_BONUS_INVITE_REQ_JS - appData.daily_claim_invites);
-                claimBtn.innerText = `Invite ${invitesNeeded} more allies to claim!`;
-                dailyBonusStatus.innerText = `Invites: ${appData.daily_claim_invites}/${DAILY_BONUS_INVITE_REQ_JS}`;
-                dailyBonusProgress.style.width = `${(appData.daily_claim_invites / DAILY_BONUS_INVITE_REQ_JS) * 100}%`;
-            }
-
-
-            // Tasks View
+            document.getElementById('announcementText').innerText = appData.announcement || "Welcome!";
+            const claimBtn = document.getElementById('claimDailyBonusBtn'); const dailyBonusStatus = document.getElementById('dailyBonusStatus'); const dailyBonusProgress = document.getElementById('dailyBonusProgress');
+            if (appData.can_claim_daily) { claimBtn.classList.remove('disabled'); claimBtn.innerText = `Claim Bonus (P${appData.daily_bonus_amount || 10})` ; dailyBonusStatus.innerText = 'Ready to Claim!'; dailyBonusProgress.style.width = '100%'; } else { claimBtn.classList.add('disabled'); const invitesNeeded = Math.max(0, appData.daily_bonus_req - appData.daily_claim_invites); claimBtn.innerText = `Invite ${invitesNeeded} more!`; dailyBonusStatus.innerText = `Invites: ${appData.daily_claim_invites}/${appData.daily_bonus_req}`; dailyBonusProgress.style.width = `${(appData.daily_claim_invites / appData.daily_bonus_req) * 100}%`; }
             const taskList = document.getElementById('taskList'); taskList.innerHTML = '';
-            if (appData.tasks && appData.tasks.length > 0) { 
-                appData.tasks.forEach(task => { 
-                    const li = document.createElement('li'); li.className = 'list-item'; 
-                    li.innerHTML = `<h3>${task.description}</h3><p>REWARD: P${task.reward.toFixed(2)}</p>
-                                    <div style="display:flex; gap: 10px; margin-top: 15px;">
-                                        <a href="${task.link}" target="_blank" class="button" style="flex:1;">Visit Link</a>
-                                        <a class="button submit-proof-btn" data-task-id="${task.id}" style="flex:1; background: var(--accent-green); color: var(--pixel-border-dark);">Submit Proof</a>
-                                    </div>`; 
-                    taskList.appendChild(li); 
-                }); 
-            } else { taskList.innerHTML = '<li class="list-item"><p>No tasks available right now. Check back later!</p></li>'; }
-
-            // Referrals View
+            if (appData.tasks && appData.tasks.length > 0) { appData.tasks.forEach(task => { const li = document.createElement('li'); li.className = 'list-item'; li.innerHTML = `<h3>${task.description}</h3><p>REWARD: P${task.reward.toFixed(2)}</p><div style="display:flex; gap: 10px; margin-top: 15px;"><a href="${task.link}" target="_blank" class="button" style="flex:1;">Visit Link</a><a class="button submit-proof-btn" data-task-id="${task.id}" style="flex:1; background: var(--accent-green); color: var(--pixel-border-dark);">Submit Proof</a></div>`; taskList.appendChild(li); }); } else { taskList.innerHTML = '<li class="list-item"><p>No tasks available. Check back later!</p></li>'; }
             document.getElementById('referralCount').innerText = appData.referral_count || 0;
             document.getElementById('successfulReferralCount').innerText = appData.successful_referrals || 0;
             document.getElementById('referralLink').innerText = `https://t.me/${BOT_USERNAME}?start=${user.id}`;
-            
-            // Profile View
             document.getElementById('profileName').innerText = `Player: ${user.first_name || 'Unknown'}`;
             document.getElementById('profileId').innerText = `ID: ${user.id}`;
             document.getElementById('tasksCompleted').innerText = `Tasks Completed: ${appData.tasks_completed || 0}`;
-
-            // Task Milestones
-            const milestonesList = document.getElementById('taskMilestonesList');
-            milestonesList.innerHTML = '';
-            const claimedMilestones = appData.claimed_milestones || {};
-            
-            for (const milestone in TASK_MILESTONES_UI) {
-                const count = parseInt(milestone.split('_')[0]);
-                const reward = TASK_MILESTONES_UI[milestone];
-                const isClaimed = claimedMilestones[milestone];
-                const currentStatus = (appData.tasks_completed >= count) ? (isClaimed ? 'CLAIMED' : 'READY') : 'PENDING';
-                const statusColor = isClaimed ? 'var(--accent-green)' : (appData.tasks_completed >= count ? 'var(--accent-yellow)' : 'var(--tg-hint)');
-
-                const item = document.createElement('div');
-                item.className = 'milestone-item';
-                item.innerHTML = `
-                    <span>${count} Tasks:</span>
-                    <span style="color: ${statusColor};">P${reward.toFixed(2)} (${currentStatus})</span>
-                `;
-                milestonesList.appendChild(item);
-            }
-
-            // Withdrawal Section in Profile
-            document.getElementById('minWithdrawalText').innerText = `Min: P${MIN_WITHDRAWAL_JS.toFixed(2)}`;
-            document.getElementById('maxWithdrawalText').innerText = `Max: P${MAX_WITHDRAWAL_JS.toFixed(2)}`;
-
-            // Withdrawal History
+            const milestonesList = document.getElementById('taskMilestonesList'); milestonesList.innerHTML = ''; const claimedMilestones = appData.claimed_milestones || {};
+            for (const milestone in TASK_MILESTONES_UI) { const count = parseInt(milestone.split('_')[0]); const reward = TASK_MILESTONES_UI[milestone]; const isClaimed = claimedMilestones[milestone]; const currentStatus = (appData.tasks_completed >= count) ? (isClaimed ? 'CLAIMED' : 'READY') : 'PENDING'; const statusColor = isClaimed ? 'var(--accent-green)' : (appData.tasks_completed >= count ? 'var(--accent-yellow)' : 'var(--tg-hint)'); const item = document.createElement('div'); item.className = 'milestone-item'; item.innerHTML = `<span>${count} Tasks:</span><span style="color: ${statusColor};">P${reward.toFixed(2)} (${currentStatus})</span>`; milestonesList.appendChild(item); }
+            document.getElementById('minWithdrawalText').innerText = `Min: P${(appData.min_withdrawal || 300).toFixed(2)}`;
+            document.getElementById('maxWithdrawalText').innerText = `Max: P${(appData.max_withdrawal || 30000).toFixed(2)}`;
             const withdrawalList = document.getElementById('withdrawalList'); withdrawalList.innerHTML = '';
-            if (appData.withdrawals && appData.withdrawals.length > 0) { 
-                appData.withdrawals.forEach(w => { 
-                    const item = document.createElement('li'); item.className = 'list-item'; 
-                    item.innerHTML = `<span>P${w.amount.toFixed(2)} (${w.method}) on ${w.date}</span><span class="status status-${w.status}">${w.status.toUpperCase()}</span>`; 
-                    withdrawalList.appendChild(item); 
-                }); 
-            } else { withdrawalList.innerHTML = '<li class="list-item"><p>No withdrawal history.</p></li>'; }
+            if (appData.withdrawals && appData.withdrawals.length > 0) { appData.withdrawals.forEach(w => { const item = document.createElement('li'); item.className = 'list-item'; item.innerHTML = `<span>P${w.amount.toFixed(2)} (${w.method}) on ${w.date}</span><span class="status status-${w.status}">${w.status.toUpperCase()}</span>`; withdrawalList.appendChild(item); }); } else { withdrawalList.innerHTML = '<li class="list-item"><p>No withdrawal history.</p></li>'; }
+            if (appData.withdrawal_maintenance) { document.getElementById('withdrawalMaintenanceOverlay').style.display = 'flex'; } else { document.getElementById('withdrawalMaintenanceOverlay').style.display = 'none'; }
+            document.getElementById('giftTicketCount').innerText = appData.gift_tickets || 0;
         }
         
-        // --- Event Listeners ---
         window.addEventListener('load', fetchInitialData);
         if (user && user.first_name) document.getElementById('welcome-message').innerText = `Hey, ${user.first_name}!`;
         document.getElementById('copyLinkBtn').addEventListener('click', () => { navigator.clipboard.writeText(document.getElementById('referralLink').innerText).then(() => { tg.HapticFeedback.notificationOccurred('success'); showToast('Link Copied!'); }); });
-        
-        document.getElementById('claimDailyBonusBtn').addEventListener('click', async () => {
-            if (document.getElementById('claimDailyBonusBtn').classList.contains('disabled')) {
-                tg.showAlert("You must meet the invite requirements or wait until tomorrow to claim.");
-                return;
-            }
-            document.getElementById('loading').style.display = 'flex';
-            try {
-                const response = await fetch(`${API_BASE_URL}/claim_daily_bonus`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ user_id: user.id, _auth: initData }) });
-                if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.detail || 'Failed to claim bonus.'); }
-                tg.showAlert(`P${DAILY_BONUS_AMOUNT_UI.toFixed(2)} has been added to your balance!`);
-                fetchInitialData(); // Refresh data
-            } catch (error) { tg.showAlert(error.message || 'Could not claim daily bonus.'); } finally { document.getElementById('loading').style.display = 'none'; }
-        });
-
-        document.getElementById('taskList').addEventListener('click', e => { 
-            if (e.target.classList.contains('submit-proof-btn')) { 
-                const taskId = e.target.getAttribute('data-task-id');
-                // Check if task is already completed based on current appData.tasks
-                const task = appData.tasks.find(t => t.id == taskId);
-                if (!task) { // If task is no longer in available tasks, it's completed
-                     tg.showAlert('You have already completed this task or it is no longer available.');
-                     fetchInitialData(); // Refresh in case data is stale
-                     return;
-                }
-                openTaskModal(taskId); 
-            }
-        });
-        const taskModal = document.getElementById('taskModal'); let currentTaskId = null;
-        function openTaskModal(taskId) { currentTaskId = taskId; taskModal.style.display = 'flex'; }
+        document.getElementById('claimDailyBonusBtn').addEventListener('click', async () => { if (document.getElementById('claimDailyBonusBtn').classList.contains('disabled')) { tg.showAlert("You must meet the invite requirements or wait until tomorrow to claim."); return; } document.getElementById('loading').style.display = 'flex'; try { const response = await fetch(`${API_BASE_URL}/claim_daily_bonus`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ user_id: user.id, _auth: initData }) }); if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.detail || 'Failed to claim bonus.'); } tg.showAlert(`P${DAILY_BONUS_AMOUNT_UI.toFixed(2)} has been added to your balance!`); fetchInitialData(); } catch (error) { tg.showAlert(error.message || 'Could not claim daily bonus.'); } finally { document.getElementById('loading').style.display = 'none'; } });
+        document.getElementById('taskList').addEventListener('click', e => { if (e.target.classList.contains('submit-proof-btn')) { openTaskModal(e.target.getAttribute('data-task-id')); }});
+        const taskModal = document.getElementById('taskModal'); let currentTaskId = null; function openTaskModal(taskId) { currentTaskId = taskId; taskModal.style.display = 'flex'; }
         document.getElementById('cancelSubmitBtn').addEventListener('click', () => { taskModal.style.display = 'none'; });
         taskModal.addEventListener('click', (e) => { if (e.target === taskModal) taskModal.style.display = 'none'; });
-
-        document.getElementById('taskProofForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            const text = document.getElementById('taskProofText').value;
-            const photoInput = document.getElementById('taskProofPhoto');
-            if (photoInput.files.length === 0) { tg.showAlert('Please upload a screenshot.'); return; }
-            
-            const reader = new FileReader();
-            reader.readAsDataURL(photoInput.files[0]);
-            reader.onload = async () => {
-                document.getElementById('loading').style.display = 'flex';
-                try {
-                    const response = await fetch(`${API_BASE_URL}/submit_task_proof`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ user_id: user.id, _auth: initData, task_id: currentTaskId, text, photo: reader.result }) });
-                    if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.detail || 'Submission failed.'); }
-                    tg.showAlert('Proof submitted for review!'); taskModal.style.display = 'none';
-                    fetchInitialData(); // Refresh data to hide completed tasks
-                } catch (error) { tg.showAlert(error.message || 'Submission failed.'); } finally { document.getElementById('loading').style.display = 'none'; }
-            };
-            reader.onerror = () => { tg.showAlert('Error reading file.'); };
-        });
-
-        document.getElementById('redeemCodeBtn').addEventListener('click', async () => {
-            const code = document.getElementById('redeemCodeInput').value; if (!code) { return; }
-            document.getElementById('loading').style.display = 'flex';
-            try {
-                const response = await fetch(`${API_BASE_URL}/redeem_code`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ user_id: user.id, _auth: initData, code }) });
-                if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.detail || 'Invalid code.'); }
-                const result = await response.json();
-                tg.showAlert(`Success! P${result.amount_rewarded.toFixed(2)} added to your balance.`);
-                fetchInitialData(); // Refresh data
-            } catch (error) { tg.showAlert(error.message || 'Invalid code.'); } finally { document.getElementById('loading').style.display = 'none'; }
-        });
-
-        // Withdrawal Logic
-        let withdrawalMethod = '';
-        document.getElementById('gcashBtn').addEventListener('click', () => { withdrawalMethod = 'GCash'; document.getElementById('gcashBtn').classList.add('selected'); document.getElementById('mayaBtn').classList.remove('selected'); });
-        document.getElementById('mayaBtn').addEventListener('click', () => { withdrawalMethod = 'Maya'; document.getElementById('mayaBtn').classList.add('selected'); document.getElementById('gcashBtn').classList.remove('selected'); });
-
-        document.getElementById('withdrawForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-
-            // Check if withdrawal is under maintenance
-            if (appData.withdrawal_maintenance) {
-                tg.showAlert("Withdrawals are currently under maintenance. Please try again later.");
-                return;
-            }
-
-            const amount = parseFloat(document.getElementById('withdrawAmount').value);
-            const details = document.getElementById('withdrawDetails').value;
-
-            if (isNaN(amount) || amount < MIN_WITHDRAWAL_JS || amount > MAX_WITHDRAWAL_JS) { tg.showAlert(`Amount must be between P${MIN_WITHDRAWAL_JS.toFixed(2)} and P${MAX_WITHDRAWAL_JS.toFixed(2)}.`); return; }
-            if (amount > appData.balance) { tg.showAlert('Insufficient balance.'); return; }
-            if (!withdrawalMethod) { tg.showAlert('Please select a withdrawal method.'); return; }
-            if (!details) { tg.showAlert('Please enter your account number.'); return; }
-
-            document.getElementById('loading').style.display = 'flex';
-            try {
-                const response = await fetch(`${API_BASE_URL}/submit_withdrawal`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ user_id: user.id, _auth: initData, amount, method: withdrawalMethod, details }) });
-                if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.detail || 'Submission failed.'); }
-                tg.showAlert('Withdrawal request submitted!');
-                fetchInitialData(); // Refresh data
-                document.getElementById('withdrawAmount').value = '';
-                document.getElementById('withdrawDetails').value = '';
-                document.getElementById('gcashBtn').classList.remove('selected');
-                document.getElementById('mayaBtn').classList.remove('selected');
-                withdrawalMethod = '';
-            } catch (error) { tg.showAlert(error.message || 'Withdrawal failed. Please try again.'); } finally { document.getElementById('loading').style.display = 'none'; }
-        });
-
+        document.getElementById('taskProofForm').addEventListener('submit', async function(e) { e.preventDefault(); const text = document.getElementById('taskProofText').value; const photoInput = document.getElementById('taskProofPhoto'); if (photoInput.files.length === 0) { tg.showAlert('Please upload a screenshot.'); return; } const reader = new FileReader(); reader.readAsDataURL(photoInput.files[0]); reader.onload = async () => { document.getElementById('loading').style.display = 'flex'; try { const response = await fetch(`${API_BASE_URL}/submit_task_proof`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ user_id: user.id, _auth: initData, task_id: currentTaskId, text, photo: reader.result }) }); if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.detail || 'Submission failed.'); } tg.showAlert('Proof submitted for review!'); taskModal.style.display = 'none'; fetchInitialData(); } catch (error) { tg.showAlert(error.message || 'Submission failed.'); } finally { document.getElementById('loading').style.display = 'none'; } }; reader.onerror = () => { tg.showAlert('Error reading file.'); }; });
+        document.getElementById('redeemCodeBtn').addEventListener('click', async () => { const code = document.getElementById('redeemCodeInput').value; if (!code) { return; } document.getElementById('loading').style.display = 'flex'; try { const response = await fetch(`${API_BASE_URL}/redeem_code`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ user_id: user.id, _auth: initData, code }) }); if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.detail || 'Invalid code.'); } const result = await response.json(); tg.showAlert(`Success! P${result.amount_rewarded.toFixed(2)} added to your balance.`); fetchInitialData(); } catch (error) { tg.showAlert(error.message || 'Invalid code.'); } finally { document.getElementById('loading').style.display = 'none'; } });
+        document.getElementById('gcashBtn').addEventListener('click', () => { withdrawalMethod = 'GCash'; document.getElementById('gcashBtn').classList.add('selected'); document.getElementById('mayaBtn').classList.remove('selected'); }); document.getElementById('mayaBtn').addEventListener('click', () => { withdrawalMethod = 'Maya'; document.getElementById('mayaBtn').classList.add('selected'); document.getElementById('gcashBtn').classList.remove('selected'); });
+        document.getElementById('withdrawForm').addEventListener('submit', async function(e) { e.preventDefault(); if (appData.withdrawal_maintenance) { tg.showAlert("Withdrawals are currently under maintenance. Please try again later."); return; } const amount = parseFloat(document.getElementById('withdrawAmount').value); const details = document.getElementById('withdrawDetails').value; const fee = amount * (appData.withdrawal_fee_percent || 0.03); const total = amount + fee; if (isNaN(amount) || amount < appData.min_withdrawal || amount > appData.max_withdrawal) { tg.showAlert(`Amount must be between P${appData.min_withdrawal.toFixed(2)} and P${appData.max_withdrawal.toFixed(2)}.`); return; } if (total > appData.balance) { tg.showAlert('Insufficient balance to cover amount and fee.'); return; } if (!withdrawalMethod) { tg.showAlert('Please select a withdrawal method.'); return; } if (!details) { tg.showAlert('Please enter your account number.'); return; } document.getElementById('loading').style.display = 'flex'; try { const response = await fetch(`${API_BASE_URL}/submit_withdrawal`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ user_id: user.id, _auth: initData, amount, method: withdrawalMethod, details }) }); if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.detail || 'Submission failed.'); } tg.showAlert('Withdrawal request submitted!'); fetchInitialData(); document.getElementById('withdrawForm').reset(); withdrawalMethod = ''; document.getElementById('gcashBtn').classList.remove('selected'); document.getElementById('mayaBtn').classList.remove('selected'); } catch (error) { tg.showAlert(error.message || 'Withdrawal failed. Please try again.'); } finally { document.getElementById('loading').style.display = 'none'; } });
+        document.getElementById('withdrawAmount').addEventListener('input', (e) => { const amount = parseFloat(e.target.value) || 0; const fee = amount * (appData.withdrawal_fee_percent || 0.03); const feeText = document.getElementById('withdrawalFeeText'); if(amount > 0) { feeText.innerText = `Fee: P${fee.toFixed(2)} | You will receive: P${(amount).toFixed(2)}`; feeText.style.display = 'block'; } else { feeText.style.display = 'none'; } });
+        document.getElementById('buyTicketBtn').addEventListener('click', async () => { tg.showConfirm(`Buy 1 Gift Ticket for P${appData.gift_ticket_price.toFixed(2)} and get 1 FREE?`, async (ok) => { if(ok){ document.getElementById('loading').style.display = 'flex'; try { const response = await fetch(`${API_BASE_URL}/buy_ticket`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ user_id: user.id, _auth: initData }) }); if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.detail || 'Purchase failed.'); } tg.showAlert("Success! You received 2 Gift Tickets."); fetchInitialData(); } catch(e) { tg.showAlert(e.message); } finally { document.getElementById('loading').style.display = 'none'; } } }); });
+        document.getElementById('giftForm').addEventListener('submit', async function(e) { e.preventDefault(); const recipient_id = document.getElementById('giftRecipientId').value; const amount = parseFloat(document.getElementById('giftAmount').value); if(!recipient_id || isNaN(amount)) { tg.showAlert("Please fill all fields correctly."); return; } if(appData.gift_tickets < 1) { tg.showAlert("You do not have any Gift Tickets to use."); return; } document.getElementById('loading').style.display = 'flex'; try { const response = await fetch(`${API_BASE_URL}/gift_money`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ user_id: user.id, _auth: initData, recipient_id, amount }) }); if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.detail || 'Gifting failed.'); } tg.showAlert("Gift sent successfully!"); fetchInitialData(); document.getElementById('giftForm').reset(); } catch(e) { tg.showAlert(e.message); } finally { document.getElementById('loading').style.display = 'none'; } });
     </script>
 </body>
 </html>
