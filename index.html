@@ -43,6 +43,12 @@
         .form-group { margin-bottom: 15px; } .form-group label { display: block; font-size: 18px; margin-bottom: 8px; } .form-group input, .form-group textarea { width: 100%; padding: 10px; font-size: 18px; font-family: 'VT323', monospace; border: 3px solid var(--pixel-border-dark); background-color: var(--tg-bg); color: var(--tg-text); box-sizing: border-box; }
         .toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: var(--tg-secondary-bg); color: var(--tg-text); padding: 15px; z-index: 2000; border: 3px solid var(--pixel-border-light); font-size: 18px; animation: toastIn 0.3s, toastOut 0.3s 2.2s; }
         .withdrawal-item .status { float: right; font-weight: 600; font-size: 16px; } .status-pending { color: var(--accent-yellow); } .status-approved { color: var(--accent-green); } .status-rejected { color: var(--accent-red); }
+        .daily-bonus-card .button.disabled { background-color: var(--tg-hint); cursor: not-allowed; opacity: 0.7; }
+        .daily-bonus-card .progress-bar { height: 10px; background-color: var(--tg-bg); border: 2px solid var(--pixel-border-dark); margin-top: 10px; }
+        .daily-bonus-card .progress-fill { height: 100%; width: 0%; background-color: var(--accent-green); transition: width 0.5s ease-in-out; }
+        .task-milestone-card .milestone-item { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 16px; }
+        .task-milestone-card .milestone-item .reward { color: var(--accent-yellow); }
+        .task-milestone-card .milestone-item .claimed { color: var(--accent-green); }
     </style>
 </head>
 <body>
@@ -53,6 +59,14 @@
     <div id="homeView" class="app-view active">
         <div class="header"> <h1 id="welcome-message">GTaskPH</h1> <p>Your Pixel Quest for Rewards!</p> </div>
         <div class="pixel-container balance-card"> <h2>Balance</h2> <p id="balanceAmount" class="balance-amount">P--.--</p> </div>
+        
+        <div class="pixel-container daily-bonus-card">
+            <h3>Daily Login Bonus</h3>
+            <p id="dailyBonusStatus" style="font-size: 16px; margin-bottom: 10px; color: var(--tg-hint);">Loading...</p>
+            <div class="progress-bar"><div id="dailyBonusProgress" class="progress-fill"></div></div>
+            <a id="claimDailyBonusBtn" class="button" style="margin-top: 15px;">Claim Bonus (P10.00)</a>
+        </div>
+
         <div class="pixel-container announcement-card"> <h3>Announcements</h3> <p id="announcementText">Loading latest news...</p> </div>
     </div>
 
@@ -84,7 +98,16 @@
         <div class="pixel-container">
             <p id="profileName" style="font-size: 18px;">Player: ...</p>
             <p id="profileId" style="font-size: 14px; color: var(--tg-hint);">ID: ...</p>
+            <p id="tasksCompleted" style="font-size: 14px; color: var(--tg-hint);">Tasks Completed: 0</p>
         </div>
+
+        <div class="pixel-container task-milestone-card">
+            <h3>Task Milestones</h3>
+            <div id="taskMilestonesList">
+                <!-- Milestones will be rendered here by JS -->
+            </div>
+        </div>
+
         <div class="pixel-container">
             <h3>Redeem Scroll</h3>
             <div style="display: flex; gap: 10px; align-items: center;">
@@ -92,6 +115,18 @@
                 <a id="redeemCodeBtn" class="button" style="padding: 10px 15px;">OK</a>
             </div>
         </div>
+
+        <div class="pixel-container">
+            <h3>Withdraw Funds</h3>
+            <p style="font-size: 16px; line-height: 1.5;">Min: ₱300.00, Max: ₱30000.00</p>
+            <form id="withdrawForm">
+                <div class="form-group"><label for="withdrawAmount">Amount</label><input type="number" id="withdrawAmount" placeholder="e.g., 500"></div>
+                <div class="form-group"><label>Method</label><div class="method-selector"><button type="button" id="gcashBtn">GCASH</button><button type="button" id="mayaBtn">MAYA</button></div></div>
+                <div class="form-group"><label for="withdrawDetails">Account Number</label><input type="tel" id="withdrawDetails" placeholder="Your GCash/Maya number"></div>
+                <button type="submit" class="button" style="background: var(--accent-red); color: var(--tg-button-text);">Submit Withdrawal</button>
+            </form>
+        </div>
+
         <div class="pixel-container">
             <h3>Withdrawal History</h3>
             <ul id="withdrawalList" class="list" style="max-height: 150px; overflow-y: auto;"></ul>
@@ -120,67 +155,218 @@
     <script>
         const tg = window.Telegram.WebApp; tg.ready(); tg.expand();
         
-        // YOUR URL IS NOW HERE
+        // IMPORTANT: Replace with your actual Railway backend URL
         const API_BASE_URL = "https://64628638262626-production.up.railway.app"; 
+        const BOT_USERNAME = "GTaskPHBot";
+        const user = tg.initDataUnsafe.user;
+        const initData = tg.initData;
 
-        const BOT_USERNAME = "GTaskPHBot"; const user = tg.initDataUnsafe.user; const initData = tg.initData; let appData = {};
-        const views = document.querySelectorAll('.app-view'); const navItems = document.querySelectorAll('.nav-item');
-        function showView(viewId) { tg.HapticFeedback.impactOccurred('light'); views.forEach(v => v.classList.remove('active')); document.getElementById(viewId).classList.add('active'); navItems.forEach(n => n.classList.remove('active')); try { document.getElementById(`nav${viewId.replace('View', '')}`).classList.add('active'); } catch (e) {} }
-        function showToast(message) { const toast = document.createElement('div'); toast.className = 'toast'; toast.innerText = message; document.body.appendChild(toast); setTimeout(() => { toast.remove(); }, 2500); }
+        let appData = {};
+        const MIN_WITHDRAWAL_JS = 300; // Must match backend
+        const MAX_WITHDRAWAL_JS = 30000; // Must match backend
+        const DAILY_BONUS_INVITE_REQ_JS = 2; // Must match backend
+        const TASK_MILESTONES_JS = {10: 50.0, 20: 150.0, 30: 400.0}; // Must match backend
+
+        const views = document.querySelectorAll('.app-view');
+        const navItems = document.querySelectorAll('.nav-item');
+        function showView(viewId) { 
+            tg.HapticFeedback.impactOccurred('light'); 
+            views.forEach(v => v.classList.remove('active')); 
+            document.getElementById(viewId).classList.add('active'); 
+            navItems.forEach(n => n.classList.remove('active')); 
+            try { document.getElementById(`nav${viewId.replace('View', '')}`).classList.add('active'); } catch (e) {} 
+        }
+
+        function showToast(message) { 
+            const toast = document.createElement('div'); 
+            toast.className = 'toast'; toast.innerText = message; 
+            document.body.appendChild(toast); 
+            setTimeout(() => { toast.remove(); }, 2500); 
+        }
+        
         async function fetchInitialData() {
             document.getElementById('loading').style.display = 'flex';
             try {
                 const response = await fetch(`${API_BASE_URL}/get_initial_data`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ user_id: user.id, _auth: initData }) });
-                if (!response.ok) { const errorText = await response.text(); throw new Error(`Network response was not ok: ${errorText}`); }
+                if (!response.ok) { const errorText = await response.text(); throw new Error(`Network response was not ok: ${response.status} - ${errorText}`); }
                 const data = await response.json();
-                if(data.error) throw new Error(data.error);
+                if(data.error) {
+                    tg.showAlert(data.detail || data.error); // Show detail for HTTPException
+                    tg.close(); // Close Mini App on critical errors like ban
+                    return;
+                }
                 appData = data;
                 renderAll();
-            } catch (error) { tg.showAlert(error.message || 'COULD NOT LOAD DATA. PLEASE RESTART.'); } finally { document.getElementById('loading').style.display = 'none'; }
+            } catch (error) { 
+                tg.showAlert(error.message || 'COULD NOT LOAD DATA. PLEASE RESTART.'); 
+                tg.close(); // Close Mini App on general errors
+            } finally { document.getElementById('loading').style.display = 'none'; }
         }
+
         function renderAll(){
+            // Home View
             document.getElementById('balanceAmount').innerText = `P${(appData.balance || 0).toFixed(2)}`;
             document.getElementById('announcementText').innerText = appData.announcement || "Welcome! No new announcements at this time.";
+
+            // Daily Bonus
+            const claimBtn = document.getElementById('claimDailyBonusBtn');
+            const dailyBonusStatus = document.getElementById('dailyBonusStatus');
+            const dailyBonusProgress = document.getElementById('dailyBonusProgress');
+
+            if (appData.can_claim_daily) {
+                claimBtn.classList.remove('disabled');
+                claimBtn.innerText = `Claim Bonus (P${DAILY_BONUS.toFixed(2)})`;
+                dailyBonusStatus.innerText = 'Ready to Claim!';
+                dailyBonusProgress.style.width = '100%';
+            } else {
+                claimBtn.classList.add('disabled');
+                claimBtn.innerText = `Invite ${DAILY_BONUS_INVITE_REQ_JS - appData.daily_claim_invites} more allies to claim!`;
+                dailyBonusStatus.innerText = `Invites: ${appData.daily_claim_invites}/${DAILY_BONUS_INVITE_REQ_JS}`;
+                dailyBonusProgress.style.width = `${(appData.daily_claim_invites / DAILY_BONUS_INVITE_REQ_JS) * 100}%`;
+            }
+
+
+            // Tasks View
             const taskList = document.getElementById('taskList'); taskList.innerHTML = '';
-            if (appData.tasks && appData.tasks.length > 0) { appData.tasks.forEach(task => { const li = document.createElement('li'); li.className = 'list-item'; li.innerHTML = `<h3>${task.description}</h3><p>REWARD: P${task.reward.toFixed(2)}</p><div style="display:flex; gap: 10px; margin-top: 15px;"><a href="${task.link}" target="_blank" class="button" style="flex:1;">Visit Link</a><a class="button submit-proof-btn" data-task-id="${task.id}" style="flex:1; background: var(--accent-green); color: var(--pixel-border-dark);">Submit Proof</a></div>`; taskList.appendChild(li); }); } else { taskList.innerHTML = '<li class="list-item"><p>No tasks available right now. Check back later!</p></li>'; }
+            if (appData.tasks && appData.tasks.length > 0) { 
+                appData.tasks.forEach(task => { 
+                    const li = document.createElement('li'); li.className = 'list-item'; 
+                    li.innerHTML = `<h3>${task.description}</h3><p>REWARD: P${task.reward.toFixed(2)}</p>
+                                    <div style="display:flex; gap: 10px; margin-top: 15px;">
+                                        <a href="${task.link}" target="_blank" class="button" style="flex:1;">Visit Link</a>
+                                        <a class="button submit-proof-btn" data-task-id="${task.id}" style="flex:1; background: var(--accent-green); color: var(--pixel-border-dark);">Submit Proof</a>
+                                    </div>`; 
+                    taskList.appendChild(li); 
+                }); 
+            } else { taskList.innerHTML = '<li class="list-item"><p>No tasks available right now. Check back later!</p></li>'; }
+
+            // Referrals View
             document.getElementById('referralCount').innerText = appData.referral_count || 0;
             document.getElementById('successfulReferralCount').innerText = appData.successful_referrals || 0;
             document.getElementById('referralLink').innerText = `https://t.me/${BOT_USERNAME}?start=${user.id}`;
+            
+            // Profile View
             document.getElementById('profileName').innerText = `Player: ${user.first_name || 'Unknown'}`;
             document.getElementById('profileId').innerText = `ID: ${user.id}`;
+            document.getElementById('tasksCompleted').innerText = `Tasks Completed: ${appData.tasks_completed || 0}`;
+
+            // Task Milestones
+            const milestonesList = document.getElementById('taskMilestonesList');
+            milestonesList.innerHTML = '';
+            const claimedMilestones = appData.claimed_milestones || {};
+            
+            for (const milestone in TASK_MILESTONES_JS) {
+                const count = parseInt(milestone.split('_')[0]);
+                const reward = TASK_MILESTONES_JS[milestone];
+                const isClaimed = claimedMilestones[milestone];
+                const currentStatus = (appData.tasks_completed >= count) ? (isClaimed ? 'CLAIMED' : 'READY') : 'PENDING';
+                const statusColor = isClaimed ? 'var(--accent-green)' : (appData.tasks_completed >= count ? 'var(--accent-yellow)' : 'var(--tg-hint)');
+
+                const item = document.createElement('div');
+                item.className = 'milestone-item';
+                item.innerHTML = `
+                    <span>${count} Tasks:</span>
+                    <span style="color: ${statusColor};">P${reward.toFixed(2)} (${currentStatus})</span>
+                `;
+                milestonesList.appendChild(item);
+            }
+
+            // Withdrawal History
             const withdrawalList = document.getElementById('withdrawalList'); withdrawalList.innerHTML = '';
-            if (appData.withdrawals && appData.withdrawals.length > 0) appData.withdrawals.forEach(w => { const item = document.createElement('li'); item.className = 'list-item'; item.innerHTML = `<span>P${w.amount.toFixed(2)} (${w.method})</span><span class="status status-${w.status}">${w.status}</span>`; withdrawalList.appendChild(item); }); else withdrawalList.innerHTML = '<li class="list-item"><p>No withdrawal history.</p></li>';
+            if (appData.withdrawals && appData.withdrawals.length > 0) { 
+                appData.withdrawals.forEach(w => { 
+                    const item = document.createElement('li'); item.className = 'list-item'; 
+                    item.innerHTML = `<span>P${w.amount.toFixed(2)} (${w.method}) on ${w.date}</span><span class="status status-${w.status}">${w.status.toUpperCase()}</span>`; 
+                    withdrawalList.appendChild(item); 
+                }); 
+            } else { withdrawalList.innerHTML = '<li class="list-item"><p>No withdrawal history.</p></li>'; }
         }
+        
+        // --- Event Listeners ---
         window.addEventListener('load', fetchInitialData);
-        if (user && user.first_name) document.getElementById('welcome-message').innerText = `Hey, ${user.first_name}!`;
+        if (user && user.first_name) document.getElementById('welcome-message').innerText = `HEY, ${user.first_name}!`;
         document.getElementById('copyLinkBtn').addEventListener('click', () => { navigator.clipboard.writeText(document.getElementById('referralLink').innerText).then(() => { tg.HapticFeedback.notificationOccurred('success'); showToast('Link Copied!'); }); });
+        
+        document.getElementById('claimDailyBonusBtn').addEventListener('click', async () => {
+            if (document.getElementById('claimDailyBonusBtn').classList.contains('disabled')) {
+                tg.showAlert("You must meet the invite requirements or wait until tomorrow to claim.");
+                return;
+            }
+            document.getElementById('loading').style.display = 'flex';
+            try {
+                const response = await fetch(`${API_BASE_URL}/claim_daily_bonus`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ user_id: user.id, _auth: initData }) });
+                if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.detail || 'Failed to claim bonus.'); }
+                tg.showAlert(`P${DAILY_BONUS.toFixed(2)} has been added to your balance!`);
+                fetchInitialData(); // Refresh data
+            } catch (error) { tg.showAlert(error.message || 'Could not claim daily bonus.'); } finally { document.getElementById('loading').style.display = 'none'; }
+        });
+
         document.getElementById('taskList').addEventListener('click', e => { if (e.target.classList.contains('submit-proof-btn')) { openTaskModal(e.target.getAttribute('data-task-id')); }});
         const taskModal = document.getElementById('taskModal'); let currentTaskId = null;
         function openTaskModal(taskId) { currentTaskId = taskId; taskModal.style.display = 'flex'; }
         document.getElementById('cancelSubmitBtn').addEventListener('click', () => { taskModal.style.display = 'none'; });
         taskModal.addEventListener('click', (e) => { if (e.target === taskModal) taskModal.style.display = 'none'; });
+
         document.getElementById('taskProofForm').addEventListener('submit', async function(e) {
-            e.preventDefault(); const text = document.getElementById('taskProofText').value; const photoInput = document.getElementById('taskProofPhoto'); if (photoInput.files.length === 0) { tg.showAlert('Please upload a screenshot.'); return; }
-            const reader = new FileReader(); reader.readAsDataURL(photoInput.files[0]);
+            e.preventDefault();
+            const text = document.getElementById('taskProofText').value;
+            const photoInput = document.getElementById('taskProofPhoto');
+            if (photoInput.files.length === 0) { tg.showAlert('Please upload a screenshot.'); return; }
+            
+            const reader = new FileReader();
+            reader.readAsDataURL(photoInput.files[0]);
             reader.onload = async () => {
                 document.getElementById('loading').style.display = 'flex';
                 try {
                     const response = await fetch(`${API_BASE_URL}/submit_task_proof`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ user_id: user.id, _auth: initData, task_id: currentTaskId, text, photo: reader.result }) });
-                    const result = await response.json();
-                    if (result.status === 'success') { tg.showAlert('Proof submitted for review!'); taskModal.style.display = 'none'; } else { throw new Error(result.message); }
+                    if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.detail || 'Submission failed.'); }
+                    tg.showAlert('Proof submitted for review!'); taskModal.style.display = 'none';
                 } catch (error) { tg.showAlert(error.message || 'Submission failed.'); } finally { document.getElementById('loading').style.display = 'none'; }
             };
             reader.onerror = () => { tg.showAlert('Error reading file.'); };
         });
+
         document.getElementById('redeemCodeBtn').addEventListener('click', async () => {
             const code = document.getElementById('redeemCodeInput').value; if (!code) { return; }
             document.getElementById('loading').style.display = 'flex';
             try {
                 const response = await fetch(`${API_BASE_URL}/redeem_code`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ user_id: user.id, _auth: initData, code }) });
+                if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.detail || 'Invalid code.'); }
                 const result = await response.json();
-                if (result.status === 'success') { tg.showAlert(`Success! P${result.amount_rewarded.toFixed(2)} added to your balance.`); fetchInitialData(); } else { throw new Error(result.message); }
+                tg.showAlert(`Success! P${result.amount_rewarded.toFixed(2)} added to your balance.`);
+                fetchInitialData(); // Refresh data
             } catch (error) { tg.showAlert(error.message || 'Invalid code.'); } finally { document.getElementById('loading').style.display = 'none'; }
         });
+
+        // Withdrawal Logic
+        let withdrawalMethod = '';
+        document.getElementById('gcashBtn').addEventListener('click', () => { withdrawalMethod = 'GCash'; document.getElementById('gcashBtn').classList.add('selected'); document.getElementById('mayaBtn').classList.remove('selected'); });
+        document.getElementById('mayaBtn').addEventListener('click', () => { withdrawalMethod = 'Maya'; document.getElementById('mayaBtn').classList.add('selected'); document.getElementById('gcashBtn').classList.remove('selected'); });
+
+        document.getElementById('withdrawForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const amount = parseFloat(document.getElementById('withdrawAmount').value);
+            const details = document.getElementById('withdrawDetails').value;
+
+            if (isNaN(amount) || amount < MIN_WITHDRAWAL_JS || amount > MAX_WITHDRAWAL_JS) { tg.showAlert(`Amount must be between P${MIN_WITHDRAWAL_JS.toFixed(2)} and P${MAX_WITHDRAWAL_JS.toFixed(2)}.`); return; }
+            if (amount > appData.balance) { tg.showAlert('Insufficient balance.'); return; }
+            if (!withdrawalMethod) { tg.showAlert('Please select a withdrawal method.'); return; }
+            if (!details) { tg.showAlert('Please enter your account number.'); return; }
+
+            document.getElementById('loading').style.display = 'flex';
+            try {
+                const response = await fetch(`${API_BASE_URL}/submit_withdrawal`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ user_id: user.id, _auth: initData, amount, method: withdrawalMethod, details }) });
+                if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.detail || 'Submission failed.'); }
+                tg.showAlert('Withdrawal request submitted!');
+                fetchInitialData(); // Refresh data
+                document.getElementById('withdrawAmount').value = '';
+                document.getElementById('withdrawDetails').value = '';
+                document.getElementById('gcashBtn').classList.remove('selected');
+                document.getElementById('mayaBtn').classList.remove('selected');
+                withdrawalMethod = '';
+            } catch (error) { tg.showAlert(error.message || 'Withdrawal failed. Please try again.'); } finally { document.getElementById('loading').style.display = 'none'; }
+        });
+
     </script>
 </body>
 </html>
