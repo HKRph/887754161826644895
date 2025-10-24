@@ -92,7 +92,7 @@
         </div>
     </div>
 
-    <!-- Profile View -->
+    <!-- Profile View (Now includes Withdrawal) -->
     <div id="profileView" class="app-view">
         <div class="header"> <h1>Player Info</h1> </div>
         <div class="pixel-container">
@@ -116,6 +116,7 @@
             </div>
         </div>
 
+        <!-- Withdrawal Section - Now part of Profile View -->
         <div class="pixel-container">
             <h3>Withdraw Funds</h3>
             <p style="font-size: 16px; line-height: 1.5;">Min: ₱300.00, Max: ₱30000.00</p>
@@ -155,7 +156,7 @@
     <script>
         const tg = window.Telegram.WebApp; tg.ready(); tg.expand();
         
-        // IMPORTANT: Replace with your actual Railway backend URL
+        // YOUR FINAL RAILWAY BACKEND URL IS HERE
         const API_BASE_URL = "https://64628638262626-production.up.railway.app"; 
         const BOT_USERNAME = "GTaskPHBot";
         const user = tg.initDataUnsafe.user;
@@ -188,18 +189,18 @@
             document.getElementById('loading').style.display = 'flex';
             try {
                 const response = await fetch(`${API_BASE_URL}/get_initial_data`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ user_id: user.id, _auth: initData }) });
-                if (!response.ok) { const errorText = await response.text(); throw new Error(`Network response was not ok: ${response.status} - ${errorText}`); }
+                if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.detail || `Network response was not ok: ${response.status}`); }
                 const data = await response.json();
                 if(data.error) {
-                    tg.showAlert(data.detail || data.error); // Show detail for HTTPException
-                    tg.close(); // Close Mini App on critical errors like ban
+                    tg.showAlert(data.detail || data.error); 
+                    // No tg.close() here, let user see the message, they can close manually
                     return;
                 }
                 appData = data;
                 renderAll();
             } catch (error) { 
                 tg.showAlert(error.message || 'COULD NOT LOAD DATA. PLEASE RESTART.'); 
-                tg.close(); // Close Mini App on general errors
+                // No tg.close() here either, let user try again if they want
             } finally { document.getElementById('loading').style.display = 'none'; }
         }
 
