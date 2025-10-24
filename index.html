@@ -49,6 +49,7 @@
         .task-milestone-card .milestone-item { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 16px; }
         .task-milestone-card .milestone-item .reward { color: var(--accent-yellow); }
         .task-milestone-card .milestone-item .claimed { color: var(--accent-green); }
+        .method-selector { display: flex; gap: 10px; } .method-selector button { flex-grow: 1; padding: 12px; border: 3px solid var(--pixel-border-dark); background-color: var(--tg-bg); color: var(--tg-text); font-size: 18px; font-family: 'VT323', monospace; cursor: pointer; } .method-selector button.selected { background-color: var(--tg-text); color: var(--tg-bg); }
     </style>
 </head>
 <body>
@@ -119,7 +120,7 @@
         <!-- Withdrawal Section - Now part of Profile View -->
         <div class="pixel-container">
             <h3>Withdraw Funds</h3>
-            <p style="font-size: 16px; line-height: 1.5;">Min: ₱300.00, Max: ₱30000.00</p>
+            <p style="font-size: 16px; line-height: 1.5;"><span id="minWithdrawalText">Min: P300.00</span>, <span id="maxWithdrawalText">Max: P30000.00</span></p>
             <form id="withdrawForm">
                 <div class="form-group"><label for="withdrawAmount">Amount</label><input type="number" id="withdrawAmount" placeholder="e.g., 500"></div>
                 <div class="form-group"><label>Method</label><div class="method-selector"><button type="button" id="gcashBtn">GCASH</button><button type="button" id="mayaBtn">MAYA</button></div></div>
@@ -163,10 +164,15 @@
         const initData = tg.initData;
 
         let appData = {};
-        const MIN_WITHDRAWAL_JS = 300; // Must match backend
-        const MAX_WITHDRAWAL_JS = 30000; // Must match backend
-        const DAILY_BONUS_INVITE_REQ_JS = 2; // Must match backend
-        const TASK_MILESTONES_JS = {10: 50.0, 20: 150.0, 30: 400.0}; // Must match backend
+        let withdrawalMethod = '';
+
+        // These should be dynamically fetched or match backend constants
+        let MIN_WITHDRAWAL_JS = 300; 
+        let MAX_WITHDRAWAL_JS = 30000;
+        let DAILY_BONUS_INVITE_REQ_JS = 2;
+        const DAILY_BONUS_AMOUNT_JS = 10;
+        const TASK_MILESTONES_JS = {10: 50.0, 20: 150.0, 30: 400.0}; 
+
 
         const views = document.querySelectorAll('.app-view');
         const navItems = document.querySelectorAll('.nav-item');
@@ -189,18 +195,33 @@
             document.getElementById('loading').style.display = 'flex';
             try {
                 const response = await fetch(`${API_BASE_URL}/get_initial_data`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ user_id: user.id, _auth: initData }) });
-                if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.detail || `Network response was not ok: ${response.status}`); }
+                if (!response.ok) { 
+                    const errorText = await response.text(); 
+                    let errorMessage = `Network response was not ok: ${response.status}.`;
+                    try {
+                        const errorJson = JSON.parse(errorText);
+                        errorMessage = errorJson.detail || errorJson.error || errorMessage;
+                    } catch (e) {
+                        errorMessage = errorText; // Use raw text if not JSON
+                    }
+                    throw new Error(errorMessage); 
+                }
                 const data = await response.json();
                 if(data.error) {
                     tg.showAlert(data.detail || data.error); 
-                    // No tg.close() here, let user see the message, they can close manually
+                    // Do not close app on soft errors, allow user to see status
                     return;
                 }
                 appData = data;
+                
+                // Update dynamic constants from backend
+                MIN_WITHDRAWAL_JS = data.min_withdrawal;
+                MAX_WITHDRAWAL_JS = data.max_withdrawal;
+                DAILY_BONUS_INVITE_REQ_JS = data.daily_bonus_req;
+
                 renderAll();
             } catch (error) { 
                 tg.showAlert(error.message || 'COULD NOT LOAD DATA. PLEASE RESTART.'); 
-                // No tg.close() here either, let user try again if they want
             } finally { document.getElementById('loading').style.display = 'none'; }
         }
 
@@ -216,12 +237,13 @@
 
             if (appData.can_claim_daily) {
                 claimBtn.classList.remove('disabled');
-                claimBtn.innerText = `Claim Bonus (P${DAILY_BONUS.toFixed(2)})`;
+                claimBtn.innerText = `Claim Bonus (P${DAILY_BONUS_AMOUNT_JS.toFixed(2)})`;
                 dailyBonusStatus.innerText = 'Ready to Claim!';
                 dailyBonusProgress.style.width = '100%';
             } else {
                 claimBtn.classList.add('disabled');
-                claimBtn.innerText = `Invite ${DAILY_BONUS_INVITE_REQ_JS - appData.daily_claim_invites} more allies to claim!`;
+                const invitesNeeded = Math.max(0, DAILY_BONUS_INVITE_REQ_JS - appData.daily_claim_invites);
+                claimBtn.innerText = `Invite ${invitesNeeded} more allies to claim!`;
                 dailyBonusStatus.innerText = `Invites: ${appData.daily_claim_invites}/${DAILY_BONUS_INVITE_REQ_JS}`;
                 dailyBonusProgress.style.width = `${(appData.daily_claim_invites / DAILY_BONUS_INVITE_REQ_JS) * 100}%`;
             }
@@ -272,6 +294,10 @@
                 milestonesList.appendChild(item);
             }
 
+            // Withdrawal Section in Profile
+            document.getElementById('minWithdrawalText').innerText = `Min: P${MIN_WITHDRAWAL_JS.toFixed(2)}`;
+            document.getElementById('maxWithdrawalText').innerText = `Max: P${MAX_WITHDRAWAL_JS.toFixed(2)}`;
+
             // Withdrawal History
             const withdrawalList = document.getElementById('withdrawalList'); withdrawalList.innerHTML = '';
             if (appData.withdrawals && appData.withdrawals.length > 0) { 
@@ -285,7 +311,7 @@
         
         // --- Event Listeners ---
         window.addEventListener('load', fetchInitialData);
-        if (user && user.first_name) document.getElementById('welcome-message').innerText = `HEY, ${user.first_name}!`;
+        if (user && user.first_name) document.getElementById('welcome-message').innerText = `Hey, ${user.first_name}!`;
         document.getElementById('copyLinkBtn').addEventListener('click', () => { navigator.clipboard.writeText(document.getElementById('referralLink').innerText).then(() => { tg.HapticFeedback.notificationOccurred('success'); showToast('Link Copied!'); }); });
         
         document.getElementById('claimDailyBonusBtn').addEventListener('click', async () => {
@@ -297,7 +323,7 @@
             try {
                 const response = await fetch(`${API_BASE_URL}/claim_daily_bonus`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ user_id: user.id, _auth: initData }) });
                 if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.detail || 'Failed to claim bonus.'); }
-                tg.showAlert(`P${DAILY_BONUS.toFixed(2)} has been added to your balance!`);
+                tg.showAlert(`P${DAILY_BONUS_AMOUNT_JS.toFixed(2)} has been added to your balance!`);
                 fetchInitialData(); // Refresh data
             } catch (error) { tg.showAlert(error.message || 'Could not claim daily bonus.'); } finally { document.getElementById('loading').style.display = 'none'; }
         });
@@ -322,6 +348,7 @@
                     const response = await fetch(`${API_BASE_URL}/submit_task_proof`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ user_id: user.id, _auth: initData, task_id: currentTaskId, text, photo: reader.result }) });
                     if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.detail || 'Submission failed.'); }
                     tg.showAlert('Proof submitted for review!'); taskModal.style.display = 'none';
+                    fetchInitialData(); // Refresh data to hide completed tasks
                 } catch (error) { tg.showAlert(error.message || 'Submission failed.'); } finally { document.getElementById('loading').style.display = 'none'; }
             };
             reader.onerror = () => { tg.showAlert('Error reading file.'); };
