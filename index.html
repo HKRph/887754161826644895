@@ -55,9 +55,13 @@
         /* Game specific styles */
         .game-room-item { display: flex; justify-content: space-between; align-items: center; }
         .game-buttons { display: flex; gap: 10px; margin-top: 15px; }
-        .game-choice-button { flex: 1; padding: 20px; font-size: 40px; background: var(--tg-bg); }
+        .game-choice-button { flex: 1; padding: 20px; font-size: 40px; background: var(--tg-bg); border: 3px solid var(--pixel-border-dark); }
+        .game-choice-button.selected { border-color: var(--tg-button); }
         .game-result { text-align: center; margin-top: 20px; font-size: 24px; }
         .game-move { font-size: 36px; margin: 10px; }
+        .game-moves-display { display: flex; justify-content: space-around; margin-top: 20px; font-size: 24px; }
+        .game-status-box { text-align: center; margin-bottom: 20px; font-size: 18px; color: var(--accent-yellow); }
+        .game-result-box { text-align: center; margin-top: 20px; font-size: 24px; font-weight: bold; color: var(--tg-text); }
     </style>
 </head>
 <body>
@@ -144,10 +148,10 @@
     <div id="gamePlayModal" class="modal-overlay">
         <div class="modal-content">
             <h2 id="gamePlayModalTitle" style="font-size: 20px;">Jack & Poy!</h2>
-            <p id="gameStatusText" style="font-size: 18px; margin-bottom: 20px;">Waiting for opponent's move...</p>
+            <p id="gameStatusText" style="font-size: 18px; margin-bottom: 20px;">Connecting to game...</p>
             <div id="gameMoves" style="display: flex; justify-content: center; gap: 15px; margin-bottom: 20px;">
-                <div id="playerMove" class="game-move"></div>
-                <div id="opponentMove" class="game-move"></div>
+                <div id="playerMoveDisplay" class="game-move">?</div>
+                <div id="opponentMoveDisplay" class="game-move">?</div>
             </div>
             <div id="gameChoices" style="display: flex; gap: 10px;">
                 <button class="button game-choice-button" data-move="rock">✊</button>
@@ -221,17 +225,14 @@
         
         // YOUR FINAL RAILWAY BACKEND URL IS HERE
         const API_BASE_URL = "https://64628638262626-production.up.railway.app"; 
-
         const BOT_USERNAME = "GTaskPHBot";
         const user = tg.initDataUnsafe.user;
         const initData = tg.initData;
 
         let appData = {}; 
         let withdrawalMethod = '';
-        let ws = null; // WebSocket connection
-        let currentGameRoomId = null; // Track current game room
 
-        // These constants are dynamic, fetched from backend to ensure consistency
+        // These constants are dynamic, fetched from backend
         let MIN_WITHDRAWAL_JS = 300; 
         let MAX_WITHDRAWAL_JS = 30000;
         let WITHDRAWAL_FEE_PERCENT_JS = 0.03;
@@ -242,8 +243,7 @@
         let GIFT_MAX_AMOUNT_JS = 80000;
         let GIFT_FEE_PERCENT_JS = 0.05;
         let MIN_GAME_BET_JS = 10;
-        const TASK_MILESTONES_JS = {10: 50.0, 20: 150.0, 30: 400.0}; 
-
+        const TASK_MILESTONES_UI = {10: 50.0, 20: 150.0, 30: 400.0}; // Still hardcoded for display purposes
 
         const views = document.querySelectorAll('.app-view');
         const navItems = document.querySelectorAll('.nav-item');
@@ -259,7 +259,7 @@
                 console.error("Error setting active nav item:", e);
             }
             if (viewId === 'gamesView') {
-                renderGameRooms();
+                fetchInitialData(); // Refresh data including game rooms
             }
         }
 
@@ -281,7 +281,7 @@
                 const data = await response.json();
                 if(data.error) { 
                     tg.showAlert(data.detail || data.error); 
-                    if(data.detail && (data.detail.includes("banned") || data.detail.includes("restricted"))){ tg.close(); }
+                    // Do not close app on soft errors, allow user to see status
                     return;
                 }
                 appData = data;
@@ -291,16 +291,21 @@
                 MAX_WITHDRAWAL_JS = data.max_withdrawal;
                 WITHDRAWAL_FEE_PERCENT_JS = data.withdrawal_fee_percent;
                 DAILY_BONUS_INVITE_REQ_JS = data.daily_bonus_req;
-                DAILY_BONUS_AMOUNT_JS = data.daily_bonus_amount; // Assuming backend sends this
+                DAILY_BONUS_AMOUNT_JS = data.daily_bonus_amount; 
                 GIFT_TICKET_PRICE_JS = data.gift_ticket_price;
                 GIFT_MIN_AMOUNT_JS = data.gift_min_amount;
                 GIFT_MAX_AMOUNT_JS = data.gift_max_amount;
                 GIFT_FEE_PERCENT_JS = data.gift_fee_percent;
                 MIN_GAME_BET_JS = data.min_game_bet;
+                
+                // Set withdrawal maintenance mode
+                const withdrawalMaintenanceOverlay = document.getElementById('withdrawalMaintenanceOverlay');
+                if (appData.withdrawal_maintenance) { withdrawalMaintenanceOverlay.style.display = 'flex'; } else { withdrawalMaintenanceOverlay.style.display = 'none'; }
 
                 renderAll();
             } catch (error) { 
                 tg.showAlert(error.message || 'COULD NOT LOAD DATA. PLEASE RESTART.'); 
+                // Don't close tg, let user retry
             } finally { document.getElementById('loading').style.display = 'none'; }
         }
 
@@ -351,7 +356,7 @@
             document.querySelector('#buyTicketBtn').innerText = `Buy Tickets (P${GIFT_TICKET_PRICE_JS.toFixed(2)} - B1G1)`;
             document.querySelector('#giftAmount').placeholder = `Min: P${GIFT_MIN_AMOUNT_JS.toFixed(2)}`;
 
-            // Games View - Rooms (only updates game list, game play is in modal)
+            // Games View - Rooms
             renderGameRooms();
 
             // Profile View
@@ -364,9 +369,9 @@
             milestonesList.innerHTML = '';
             const claimedMilestones = appData.claimed_milestones || {};
             
-            for (const milestone in TASK_MILESTONES_JS) {
+            for (const milestone in TASK_MILESTONES_UI) {
                 const count = parseInt(milestone.split('_')[0]);
-                const reward = TASK_MILESTONES_JS[milestone];
+                const reward = TASK_MILESTONES_UI[milestone];
                 const isClaimed = claimedMilestones[milestone];
                 const currentStatus = (appData.tasks_completed >= count) ? (isClaimed ? 'CLAIMED' : 'READY') : 'PENDING';
                 const statusColor = isClaimed ? 'var(--accent-green)' : (appData.tasks_completed >= count ? 'var(--accent-yellow)' : 'var(--tg-hint)');
@@ -383,6 +388,7 @@
             // Withdrawal Section in Profile
             document.getElementById('minWithdrawalText').innerText = `Min: P${MIN_WITHDRAWAL_JS.toFixed(2)}`;
             document.getElementById('maxWithdrawalText').innerText = `Max: P${MAX_WITHDRAWAL_JS.toFixed(2)}`;
+            document.getElementById('withdrawAmount').placeholder = `e.g., ${MIN_WITHDRAWAL_JS.toFixed(2)}`;
 
             const withdrawalMaintenanceOverlay = document.getElementById('withdrawalMaintenanceOverlay');
             if (appData.withdrawal_maintenance) { withdrawalMaintenanceOverlay.style.display = 'flex'; } else { withdrawalMaintenanceOverlay.style.display = 'none'; }
@@ -402,6 +408,8 @@
         function renderGameRooms() {
             const gameRoomsList = document.getElementById('gameRoomsList');
             gameRoomsList.innerHTML = '';
+            document.querySelector('#createBetAmount').placeholder = `Min: P${MIN_GAME_BET_JS.toFixed(2)}`;
+
             if (appData.game_rooms && appData.game_rooms.length > 0) {
                 appData.game_rooms.forEach(room => {
                     const li = document.createElement('li'); li.className = 'list-item game-room-item';
@@ -411,7 +419,7 @@
                             <p>Bet: P${room.bet.toFixed(2)}</p>
                             <p>Creator: ${room.creator_id}</p>
                         </div>
-                        <a class="button join-game-btn" data-room-id="${room.id}" style="width: auto; padding: 8px 12px;">Join</a>
+                        <a class="button join-game-btn" data-room-id="${room.id}" style="width: auto; padding: 8px 12px; background: var(--tg-button);">Join</a>
                     `;
                     gameRoomsList.appendChild(li);
                 });
@@ -419,7 +427,6 @@
                 gameRoomsList.innerHTML = '<li class="list-item"><p>No open game rooms. Create one!</p></li>';
             }
         }
-
 
         // --- Event Listeners ---
         window.addEventListener('load', fetchInitialData);
@@ -528,10 +535,10 @@
         document.getElementById('withdrawAmount').addEventListener('input', (e) => { 
             const amount = parseFloat(e.target.value) || 0; 
             const fee = amount * (appData.withdrawal_fee_percent || 0.03); 
-            const finalAmount = amount - fee; // User receives net amount
+            const totalDeduction = amount + fee;
             const feeText = document.getElementById('withdrawalFeeText'); 
             if(amount > 0) { 
-                feeText.innerText = `Fee: P${fee.toFixed(2)} | You will receive: P${amount.toFixed(2)}`; // Display amount user sends and fee.
+                feeText.innerText = `Fee: P${fee.toFixed(2)} | Total deducted: P${totalDeduction.toFixed(2)}`; 
                 feeText.style.display = 'block'; 
             } else { 
                 feeText.style.display = 'none'; 
@@ -540,7 +547,7 @@
 
         // Gift Money Logic
         document.getElementById('buyTicketBtn').addEventListener('click', async () => { 
-            tg.showConfirm(`Buy 1 Gift Ticket for P${appData.gift_ticket_price.toFixed(2)} and get 1 FREE?`, async (ok) => { 
+            tg.showConfirm(`Buy 1 Gift Ticket for P${appData.gift_ticket_price.toFixed(2)} and get 1 FREE? Total: 2 Tickets for P${appData.gift_ticket_price.toFixed(2)}.`, async (ok) => { 
                 if(ok){ 
                     document.getElementById('loading').style.display = 'flex'; 
                     try { 
@@ -572,10 +579,12 @@
             } catch(e) { tg.showAlert(e.message); } finally { document.getElementById('loading').style.display = 'none'; } 
         });
 
-        // Game Logic
+        // Game Logic (WebSockets)
         const gamePlayModal = document.getElementById('gamePlayModal');
-        let gameWs = null; // Dedicated WebSocket for game play
-        let currentPlayerMove = null;
+        let gameWs = null; 
+        let currentGameRoomId = null; 
+        let playerMove = null;
+        let opponentMove = null;
         const gameChoices = document.querySelectorAll('.game-choice-button');
 
         document.getElementById('createGameRoomForm').addEventListener('submit', async function(e) {
@@ -591,6 +600,7 @@
                 const result = await response.json();
                 tg.showAlert(`Game room #${result.room_id} created! Waiting for opponent.`);
                 fetchInitialData(); // Refresh rooms list
+                showView('gamesView'); // Stay on games view
             } catch (error) { tg.showAlert(error.message || 'Failed to create room.'); } finally { document.getElementById('loading').style.display = 'none'; }
         });
 
@@ -603,7 +613,6 @@
                     if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.detail || 'Failed to join room.'); }
                     
                     currentGameRoomId = roomId;
-                    showView('gamesView'); // Stay on games view
                     openGamePlayModal(roomId);
                     setupWebSocket(roomId);
 
@@ -614,14 +623,15 @@
         function openGamePlayModal(roomId) {
             gamePlayModal.style.display = 'flex';
             document.getElementById('gamePlayModalTitle').innerText = `ROOM #${roomId} - JACK & POY!`;
-            document.getElementById('gameStatusText').innerText = 'Waiting for opponent to make a move...';
-            document.getElementById('playerMove').innerText = '';
-            document.getElementById('opponentMove').innerText = '';
+            document.getElementById('gameStatusText').innerText = 'Connecting to game...';
+            document.getElementById('playerMoveDisplay').innerText = '?';
+            document.getElementById('opponentMoveDisplay').innerText = '?';
             gameChoices.forEach(btn => {
                 btn.classList.remove('disabled');
-                btn.style.backgroundColor = 'var(--tg-bg)';
+                btn.classList.remove('selected');
             });
-            currentPlayerMove = null;
+            playerMove = null;
+            opponentMove = null;
         }
 
         document.getElementById('cancelGameBtn').addEventListener('click', () => {
@@ -637,14 +647,17 @@
         gameChoices.forEach(button => {
             button.addEventListener('click', async () => {
                 const move = button.getAttribute('data-move');
-                if (gameWs && gameWs.readyState === WebSocket.OPEN && currentGameRoomId) {
-                    currentPlayerMove = move;
-                    gameChoices.forEach(btn => btn.classList.add('disabled'));
-                    button.style.backgroundColor = 'var(--tg-button)';
+                if (gameWs && gameWs.readyState === WebSocket.OPEN && currentGameRoomId && !playerMove) { // Only allow move if not already made
+                    playerMove = move;
+                    gameChoices.forEach(btn => btn.add('disabled')); // Disable all choices after one is made
+                    button.classList.add('selected'); // Highlight selected move
+                    document.getElementById('playerMoveDisplay').innerText = getEmoji(move);
                     await gameWs.send(JSON.stringify({ type: 'make_move', move: move }));
                     document.getElementById('gameStatusText').innerText = 'Move made. Waiting for opponent...';
+                } else if (playerMove) {
+                    showToast('You already made your move!');
                 } else {
-                    tg.showAlert('Game not active or connection lost.');
+                    tg.showAlert('Game not active or connection lost. Please leave and rejoin.');
                 }
             });
         });
@@ -658,27 +671,43 @@
 
             gameWs.onopen = (event) => {
                 console.log("WebSocket opened:", event);
-                // Can send a request for current game status if rejoining
+                // Request current status to sync if rejoining
+                gameWs.send(json.dumps({"type": "request_status"}));
             };
             gameWs.onmessage = (event) => {
                 const msg = JSON.parse(event.data);
+                console.log("WS message:", msg);
                 if (msg.type === 'game_start') {
                     document.getElementById('gameStatusText').innerText = 'Game started! Make your move!';
                 } else if (msg.type === 'move_made') {
-                    if (msg.user_id != user.id) {
+                    if (msg.user_id == user.id) {
+                         // Your own move confirmed
+                    } else {
                         document.getElementById('gameStatusText').innerText = 'Opponent made a move!';
                     }
-                } else if (msg.type === 'game_over') {
+                } else if (msg.type === 'game_status') {
+                    // Update UI if status comes in
+                    if(msg.status === 'active'){
+                        document.getElementById('gameStatusText').innerText = 'Game active. Make your move!';
+                    } else if (msg.status === 'finished' || msg.status === 'cancelled') {
+                        // Game already over, close modal
+                        tg.showAlert('Game already finished or cancelled. Check results in chat.');
+                        gamePlayModal.style.display = 'none';
+                        fetchInitialData();
+                    }
+                }
+                else if (msg.type === 'game_over') {
+                    document.getElementById('playerMoveDisplay').innerText = (user.id == msg.creator_id) ? getEmoji(msg.creator_move) : getEmoji(msg.opponent_move);
+                    document.getElementById('opponentMoveDisplay').innerText = (user.id == msg.creator_id) ? getEmoji(msg.opponent_move) : getEmoji(msg.creator_move);
+
                     if (msg.winner === user.id) {
                         document.getElementById('gameStatusText').innerText = `YOU WIN! 🎉`;
-                    } else if (msg.winner === -1 || msg.winner === "draw") { // -1 from backend signifies draw
+                    } else if (msg.winner === -1 || msg.winner === "draw") {
                         document.getElementById('gameStatusText').innerText = `IT'S A DRAW! 🤝`;
                     } else {
                         document.getElementById('gameStatusText').innerText = `YOU LOSE! 😭`;
                     }
-                    document.getElementById('playerMove').innerText = getEmoji(msg.creator_move);
-                    document.getElementById('opponentMove').innerText = getEmoji(msg.opponent_move);
-                    gameChoices.forEach(btn => btn.classList.add('disabled'));
+                    gameChoices.forEach(btn => btn.classList.add('disabled')); // Disable choices after game ends
                     setTimeout(() => {
                         gamePlayModal.style.display = 'none';
                         fetchInitialData(); // Refresh balance and rooms
@@ -692,16 +721,16 @@
             gameWs.onclose = (event) => {
                 console.log("WebSocket closed:", event);
                 if (event.code !== 1000) { // 1000 is normal closure
-                    tg.showAlert('Game connection lost. Check game status in bot chat.');
+                    tg.showAlert('Game connection lost. Check bot chat for results.');
                 }
                 gamePlayModal.style.display = 'none';
-                fetchInitialData();
+                fetchInitialData(); // Refresh UI
             };
             gameWs.onerror = (error) => {
                 console.error("WebSocket error:", error);
                 tg.showAlert('Game connection error. Please try again.');
                 gamePlayModal.style.display = 'none';
-                fetchInitialData();
+                fetchInitialData(); // Refresh UI
             };
         }
 
