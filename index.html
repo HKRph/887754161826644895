@@ -228,8 +228,9 @@
         tg.ready();
         tg.expand();
 
-        // --- IMPORTANT: Replace this with your actual backend URL ---
-        const API_BASE_URL = "https://64628638262626-production.up.railway.app/"; // Set this to your deployed FastAPI URL (e.g., Railway/Render URL)
+        // --- IMPORTANT: FIX FOR 404 ERROR ---
+        // Ensure API_BASE_URL has NO trailing slash. The fetch call will add the leading slash.
+        const API_BASE_URL = "https://gtask-backend.onrender.com"; // Set this to your deployed FastAPI URL (e.g., Railway/Render URL)
         const BOT_USERNAME = "GTaskPHBot"; // Must match your bot's username
         
         const user = tg.initDataUnsafe.user;
@@ -289,9 +290,10 @@
             setTimeout(() => { toast.remove(); }, 2500); 
         }
 
-        // --- API Interaction ---
+        // --- API Interaction (Path corrected here) ---
         async function apiCall(endpoint, body) {
             document.getElementById('loading').style.display = 'flex';
+            // Corrected fetch URL: API_BASE_URL + endpoint (endpoint MUST start with /)
             try {
                 const response = await fetch(`${API_BASE_URL}${endpoint}`, {
                     method: 'POST',
