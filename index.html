@@ -228,9 +228,8 @@
         tg.ready();
         tg.expand();
 
-        // --- IMPORTANT: FIX FOR 404 ERROR ---
-        // Ensure API_BASE_URL has NO trailing slash. The fetch call will add the leading slash.
-        const API_BASE_URL = "https://64628638262626-production.up.railway.app/"; // Set this to your deployed FastAPI URL (e.g., Railway/Render URL)
+        // --- FIX: Ensure API_BASE_URL has NO trailing slash ---
+        const API_BASE_URL = "https://gtask-backend.onrender.com"; // Set this to your deployed FastAPI URL (e.g., Railway/Render URL)
         const BOT_USERNAME = "GTaskPHBot"; // Must match your bot's username
         
         const user = tg.initDataUnsafe.user;
@@ -290,10 +289,11 @@
             setTimeout(() => { toast.remove(); }, 2500); 
         }
 
-        // --- API Interaction (Path corrected here) ---
+        // --- API Interaction (Path corrected) ---
         async function apiCall(endpoint, body) {
             document.getElementById('loading').style.display = 'flex';
-            // Corrected fetch URL: API_BASE_URL + endpoint (endpoint MUST start with /)
+            // CRITICAL FIX: The endpoint MUST start with a single slash, and API_BASE_URL MUST NOT have a trailing slash.
+            // This ensures the final URL is always correctly formed (e.g., https://host.com/endpoint)
             try {
                 const response = await fetch(`${API_BASE_URL}${endpoint}`, {
                     method: 'POST',
@@ -636,8 +636,12 @@
         function setupWebSocket(roomId) {
             if (gameWs) gameWs.close();
             
+            // FIX: Ensure correct path for WebSocket URL by directly using API_BASE_URL host
+            const urlParts = API_BASE_URL.split('//');
+            const host = urlParts[1].split('/')[0];
             const wsProtocol = API_BASE_URL.startsWith('https') ? 'wss:' : 'ws:';
-            const wsUrl = `${wsProtocol}//${API_BASE_URL.split('//')[1]}/ws/${roomId}/${user.id}`;
+            const wsUrl = `${wsProtocol}//${host}/ws/${roomId}/${user.id}`;
+            
             gameWs = new WebSocket(wsUrl);
 
             gameWs.onopen = () => {
