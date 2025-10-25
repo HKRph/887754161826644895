@@ -229,8 +229,8 @@
         tg.expand();
 
         // --- IMPORTANT: Replace this with your actual backend URL ---
-        const API_BASE_URL = "https://64628638262626-production.up.railway.app"; // Example: Your Render/Railway URL
-        const BOT_USERNAME = "GTaskPHBot"; // Replace with your Bot Username
+        const API_BASE_URL = "https://gtask-backend.onrender.com"; // Set this to your deployed FastAPI URL (e.g., Railway/Render URL)
+        const BOT_USERNAME = "GTaskPHBot"; // Must match your bot's username
         
         const user = tg.initDataUnsafe.user;
         const initData = tg.initData;
@@ -262,8 +262,18 @@
             views.forEach(v => v.classList.remove('active')); 
             document.getElementById(viewId).classList.add('active'); 
             navItems.forEach(n => n.classList.remove('active')); 
-            const navId = `nav${viewId.replace('View', '')}`;
-            document.getElementById(navId).classList.add('active'); 
+            
+            // Logic to determine the correct nav ID from the view ID
+            let navId;
+            if (viewId === 'tasksView') navId = 'navTasks';
+            else if (viewId === 'referralView') navId = 'navReferral';
+            else if (viewId === 'giftView') navId = 'navGift';
+            else if (viewId === 'gamesView') navId = 'navGames';
+            else if (viewId === 'profileView') navId = 'navProfile';
+            else navId = 'navHome';
+
+            const navElement = document.getElementById(navId);
+            if(navElement) navElement.classList.add('active');
             
             // Refresh data when switching to views that need it
             if (['tasksView', 'gamesView', 'profileView'].includes(viewId)) {
@@ -296,7 +306,7 @@
             } catch (error) {
                 tg.showAlert(error.message);
                 console.error(`API call to ${endpoint} failed:`, error);
-                throw error; // Re-throw to be caught by the caller
+                throw error;
             } finally {
                 document.getElementById('loading').style.display = 'none';
             }
@@ -319,9 +329,7 @@
                 MIN_GAME_BET_JS = data.min_game_bet;
                 
                 renderAll();
-            } catch (error) {
-                // Error is already shown by apiCall, no need for another alert
-            }
+            } catch (error) {}
         }
 
         // --- UI Rendering ---
@@ -603,7 +611,7 @@
                 gameWs = null;
             }
             document.getElementById('gamePlayModal').style.display = 'none';
-            fetchInitialData(); // Refresh UI and balance
+            fetchInitialData();
         });
 
         document.querySelectorAll('.game-choice-button').forEach(button => {
@@ -615,6 +623,10 @@
                     button.classList.add('selected');
                     document.getElementById('playerMoveDisplay').innerText = getEmoji(playerMove);
                     document.getElementById('gameStatusText').innerText = 'Move made. Waiting for opponent...';
+                } else if (playerMove) {
+                    showToast('You already made your move!');
+                } else {
+                    tg.showAlert('Game not active or connection lost.');
                 }
             });
         });
@@ -626,21 +638,50 @@
             const wsUrl = `${wsProtocol}//${API_BASE_URL.split('//')[1]}/ws/${roomId}/${user.id}`;
             gameWs = new WebSocket(wsUrl);
 
-            gameWs.onopen = () => console.log("WebSocket connected.");
+            gameWs.onopen = () => {
+                console.log("WebSocket connected.");
+                gameWs.send(JSON.stringify({ "type": "request_status" }));
+            };
             gameWs.onmessage = (event) => handleGameMessage(JSON.parse(event.data));
-            gameWs.onclose = () => { console.log("WebSocket closed."); gameWs = null; };
+            gameWs.onclose = (event) => { 
+                console.log("WebSocket closed:", event); 
+                gameWs = null; 
+                if (event.code !== 1000) {
+                    tg.showAlert('Game connection lost. Check chat for results.');
+                }
+                document.getElementById('gamePlayModal').style.display = 'none';
+                fetchInitialData();
+            };
             gameWs.onerror = (error) => { console.error("WebSocket error:", error); tg.showAlert('Game connection error.'); };
         }
         
         function handleGameMessage(msg) {
             console.log("WS message:", msg);
             const statusText = document.getElementById('gameStatusText');
+            const gameChoices = document.querySelectorAll('.game-choice-button');
+
             if (msg.type === 'game_start') {
                 statusText.innerText = 'Game started! Make your move!';
+                gameChoices.forEach(btn => btn.classList.remove('disabled'));
             } else if (msg.type === 'move_made') {
                 if (msg.user_id != user.id) {
                     statusText.innerText = 'Opponent has moved!';
                 }
+            } else if (msg.type === 'game_status') {
+                 // Handles rejoining or initial status request
+                 if (msg.status === 'active') {
+                    if (msg.creator_move && msg.opponent_move) {
+                        statusText.innerText = 'Moves received. Awaiting server result.';
+                    } else if ((user.id === msg.creator_id && msg.creator_move) || (user.id === msg.opponent_id && msg.opponent_move)) {
+                         statusText.innerText = 'Move made. Waiting for opponent...';
+                         gameChoices.forEach(btn => btn.classList.add('disabled'));
+                    } else {
+                         statusText.innerText = 'Game active. Make your move!';
+                         gameChoices.forEach(btn => btn.classList.remove('disabled'));
+                    }
+                 } else if (msg.status === 'pending') {
+                    statusText.innerText = 'Room created. Waiting for opponent...';
+                 }
             } else if (msg.type === 'game_over') {
                 document.getElementById('playerMoveDisplay').innerText = getEmoji(msg.creator_id == user.id ? msg.creator_move : msg.opponent_move);
                 document.getElementById('opponentMoveDisplay').innerText = getEmoji(msg.creator_id == user.id ? msg.opponent_move : msg.creator_move);
@@ -648,6 +689,8 @@
                 if (msg.winner == user.id) statusText.innerText = `YOU WIN! 🎉`;
                 else if (msg.winner == -1) statusText.innerText = `IT'S A DRAW! 🤝`;
                 else statusText.innerText = `YOU LOSE! 😭`;
+
+                gameChoices.forEach(btn => btn.classList.add('disabled'));
 
                 setTimeout(() => {
                     document.getElementById('gamePlayModal').style.display = 'none';
