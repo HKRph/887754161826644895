@@ -66,7 +66,10 @@
 </head>
 <body>
 
-    <div id="loading" class="loading-overlay" style="display: flex;">Loading...</div>
+    <div id="loading" class="loading-overlay" style="display: flex;">
+        <span style="display:inline-block; animation: blink 1s infinite;">LOADING...</span>
+        <style>@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }</style>
+    </div>
 
     <!-- Home View -->
     <div id="homeView" class="app-view active">
@@ -305,7 +308,6 @@
                 renderAll();
             } catch (error) { 
                 tg.showAlert(error.message || 'COULD NOT LOAD DATA. PLEASE RESTART.'); 
-                // Don't close tg, let user retry
             } finally { document.getElementById('loading').style.display = 'none'; }
         }
 
@@ -427,6 +429,7 @@
                 gameRoomsList.innerHTML = '<li class="list-item"><p>No open game rooms. Create one!</p></li>';
             }
         }
+
 
         // --- Event Listeners ---
         window.addEventListener('load', fetchInitialData);
@@ -581,11 +584,15 @@
 
         // Game Logic (WebSockets)
         const gamePlayModal = document.getElementById('gamePlayModal');
-        let gameWs = null; 
+        let gameWs = null; // Dedicated WebSocket for game play
         let currentGameRoomId = null; 
-        let playerMove = null;
-        let opponentMove = null;
+        let playerMove = null; // Stores player's chosen move
+        
         const gameChoices = document.querySelectorAll('.game-choice-button');
+        const gameStatusText = document.getElementById('gameStatusText');
+        const playerMoveDisplay = document.getElementById('playerMoveDisplay');
+        const opponentMoveDisplay = document.getElementById('opponentMoveDisplay');
+
 
         document.getElementById('createGameRoomForm').addEventListener('submit', async function(e) {
             e.preventDefault();
@@ -600,7 +607,12 @@
                 const result = await response.json();
                 tg.showAlert(`Game room #${result.room_id} created! Waiting for opponent.`);
                 fetchInitialData(); // Refresh rooms list
-                showView('gamesView'); // Stay on games view
+                // Optionally auto-join creator to their own room's websocket
+                currentGameRoomId = result.room_id;
+                openGamePlayModal(result.room_id);
+                setupWebSocket(result.room_id);
+                gameStatusText.innerText = 'Room created. Waiting for opponent...';
+
             } catch (error) { tg.showAlert(error.message || 'Failed to create room.'); } finally { document.getElementById('loading').style.display = 'none'; }
         });
 
@@ -623,15 +635,15 @@
         function openGamePlayModal(roomId) {
             gamePlayModal.style.display = 'flex';
             document.getElementById('gamePlayModalTitle').innerText = `ROOM #${roomId} - JACK & POY!`;
-            document.getElementById('gameStatusText').innerText = 'Connecting to game...';
-            document.getElementById('playerMoveDisplay').innerText = '?';
-            document.getElementById('opponentMoveDisplay').innerText = '?';
+            gameStatusText.innerText = 'Connecting to game...';
+            playerMoveDisplay.innerText = '?';
+            opponentMoveDisplay.innerText = '?';
             gameChoices.forEach(btn => {
                 btn.classList.remove('disabled');
                 btn.classList.remove('selected');
             });
-            playerMove = null;
-            opponentMove = null;
+            playerMove = null; // Reset player's move
+            opponentMove = null; // Reset opponent's move
         }
 
         document.getElementById('cancelGameBtn').addEventListener('click', () => {
@@ -649,11 +661,11 @@
                 const move = button.getAttribute('data-move');
                 if (gameWs && gameWs.readyState === WebSocket.OPEN && currentGameRoomId && !playerMove) { // Only allow move if not already made
                     playerMove = move;
-                    gameChoices.forEach(btn => btn.add('disabled')); // Disable all choices after one is made
+                    gameChoices.forEach(btn => btn.classList.add('disabled')); // Disable all choices after one is made
                     button.classList.add('selected'); // Highlight selected move
-                    document.getElementById('playerMoveDisplay').innerText = getEmoji(move);
+                    playerMoveDisplay.innerText = getEmoji(move);
                     await gameWs.send(JSON.stringify({ type: 'make_move', move: move }));
-                    document.getElementById('gameStatusText').innerText = 'Move made. Waiting for opponent...';
+                    gameStatusText.innerText = 'Move made. Waiting for opponent...';
                 } else if (playerMove) {
                     showToast('You already made your move!');
                 } else {
@@ -666,46 +678,55 @@
             if (gameWs) gameWs.close(); // Close any existing connection
 
             const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${wsProtocol}//${API_BASE_URL.split('//')[1]}/ws/${roomId}/${user.id}`;
+            const wsUrl = `${wsProtocol}//${API_BASE_URL.split('//')[1]}/ws/${roomId}/${user.id}`; // Ensure correct WebSocket URL
             gameWs = new WebSocket(wsUrl);
 
             gameWs.onopen = (event) => {
                 console.log("WebSocket opened:", event);
-                // Request current status to sync if rejoining
-                gameWs.send(json.dumps({"type": "request_status"}));
+                gameStatusText.innerText = 'Connected. Waiting for opponent/moves...';
+                gameWs.send(JSON.stringify({"type": "request_status"})); // Request current status to sync
             };
             gameWs.onmessage = (event) => {
                 const msg = JSON.parse(event.data);
                 console.log("WS message:", msg);
                 if (msg.type === 'game_start') {
-                    document.getElementById('gameStatusText').innerText = 'Game started! Make your move!';
+                    gameStatusText.innerText = 'Game started! Make your move!';
                 } else if (msg.type === 'move_made') {
                     if (msg.user_id == user.id) {
-                         // Your own move confirmed
+                         // Your own move confirmed, UI already updated
                     } else {
-                        document.getElementById('gameStatusText').innerText = 'Opponent made a move!';
+                        gameStatusText.innerText = 'Opponent made a move!';
+                        opponentMove = msg.move; // Store opponent's move if received
+                        opponentMoveDisplay.innerText = '?'; // Still hide until game over
                     }
                 } else if (msg.type === 'game_status') {
-                    // Update UI if status comes in
+                    // This handles initial state or rejoining
                     if(msg.status === 'active'){
-                        document.getElementById('gameStatusText').innerText = 'Game active. Make your move!';
+                        gameStatusText.innerText = 'Game active. Make your move!';
+                        if (msg.creator_id == user.id && msg.creator_move) playerMove = msg.creator_move;
+                        if (msg.opponent_id == user.id && msg.opponent_move) playerMove = msg.opponent_move;
+                        
+                        // Reflect moves if already made
+                        playerMoveDisplay.innerText = (user.id == msg.creator_id) ? getEmoji(msg.creator_move) : getEmoji(msg.opponent_move);
+                        opponentMoveDisplay.innerText = (user.id == msg.creator_id) ? (msg.opponent_move ? '?' : '') : (msg.creator_move ? '?' : '');
+                        
+                        if(playerMove) gameChoices.forEach(btn => btn.classList.add('disabled')); // Disable if already moved
                     } else if (msg.status === 'finished' || msg.status === 'cancelled') {
-                        // Game already over, close modal
                         tg.showAlert('Game already finished or cancelled. Check results in chat.');
                         gamePlayModal.style.display = 'none';
                         fetchInitialData();
                     }
                 }
                 else if (msg.type === 'game_over') {
-                    document.getElementById('playerMoveDisplay').innerText = (user.id == msg.creator_id) ? getEmoji(msg.creator_move) : getEmoji(msg.opponent_move);
-                    document.getElementById('opponentMoveDisplay').innerText = (user.id == msg.creator_id) ? getEmoji(msg.opponent_move) : getEmoji(msg.creator_move);
+                    playerMoveDisplay.innerText = (user.id == msg.creator_id) ? getEmoji(msg.creator_move) : getEmoji(msg.opponent_move);
+                    opponentMoveDisplay.innerText = (user.id == msg.creator_id) ? getEmoji(msg.opponent_move) : getEmoji(msg.creator_move);
 
                     if (msg.winner === user.id) {
-                        document.getElementById('gameStatusText').innerText = `YOU WIN! 🎉`;
+                        gameStatusText.innerText = `YOU WIN! 🎉`;
                     } else if (msg.winner === -1 || msg.winner === "draw") {
-                        document.getElementById('gameStatusText').innerText = `IT'S A DRAW! 🤝`;
+                        gameStatusText.innerText = `IT'S A DRAW! 🤝`;
                     } else {
-                        document.getElementById('gameStatusText').innerText = `YOU LOSE! 😭`;
+                        gameStatusText.innerText = `YOU LOSE! 😭`;
                     }
                     gameChoices.forEach(btn => btn.classList.add('disabled')); // Disable choices after game ends
                     setTimeout(() => {
